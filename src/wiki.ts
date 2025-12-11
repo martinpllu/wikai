@@ -24,6 +24,51 @@ export function getPagePath(slug: string): string {
   return path.join(config.dataDir, `${slug}.md`);
 }
 
+export function getChatHistoryPath(slug: string): string {
+  return path.join(config.dataDir, `${slug}.json`);
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+export async function readChatHistory(slug: string): Promise<ChatMessage[]> {
+  try {
+    const data = await fs.readFile(getChatHistoryPath(slug), 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+export async function appendChatHistory(
+  slug: string,
+  userMessage: string,
+  assistantSummary?: string
+): Promise<void> {
+  const history = await readChatHistory(slug);
+  const timestamp = new Date().toISOString();
+
+  history.push({
+    role: 'user',
+    content: userMessage,
+    timestamp,
+  });
+
+  if (assistantSummary) {
+    history.push({
+      role: 'assistant',
+      content: assistantSummary,
+      timestamp,
+    });
+  }
+
+  await fs.mkdir(config.dataDir, { recursive: true });
+  await fs.writeFile(getChatHistoryPath(slug), JSON.stringify(history, null, 2));
+}
+
 export async function pageExists(slug: string): Promise<boolean> {
   try {
     await fs.access(getPagePath(slug));

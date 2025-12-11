@@ -1,6 +1,35 @@
 import { layout } from './layout.js';
+import type { ChatMessage } from '../wiki.js';
 
-export function wikiPage(slug: string, title: string, htmlContent: string): string {
+function formatTimestamp(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function renderChatHistory(history: ChatMessage[]): string {
+  if (history.length === 0) return '';
+
+  const messages = history.map(msg => `
+    <div class="chat-message chat-message-${msg.role}">
+      <span class="chat-timestamp">${formatTimestamp(msg.timestamp)}</span>
+      <span class="chat-content">${msg.content}</span>
+    </div>
+  `).join('');
+
+  return `
+    <div class="chat-history">
+      <h4>Edit History</h4>
+      ${messages}
+    </div>
+  `;
+}
+
+export function wikiPage(slug: string, title: string, htmlContent: string, chatHistory: ChatMessage[] = []): string {
   return layout(title, `
     <article class="wiki-page">
       <div class="wiki-content">
@@ -10,16 +39,30 @@ export function wikiPage(slug: string, title: string, htmlContent: string): stri
 
     <section class="chat-section">
       <h3>Ask or Edit</h3>
-      <form action="/wiki/${slug}/chat" method="POST" class="chat-form">
+      ${renderChatHistory(chatHistory)}
+      <form action="/wiki/${slug}/chat" method="POST" class="chat-form" id="chat-form">
         <textarea
           name="message"
+          id="chat-message"
           placeholder="Ask a question about this topic, or give instructions to edit the page..."
           rows="3"
           required
         ></textarea>
-        <button type="submit">Send</button>
+        <button type="submit" id="chat-submit">Send</button>
       </form>
     </section>
+
+    <script>
+      const form = document.getElementById('chat-form');
+      const textarea = document.getElementById('chat-message');
+      const button = document.getElementById('chat-submit');
+
+      form.addEventListener('submit', () => {
+        textarea.disabled = true;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner"></span> Updating...';
+      });
+    </script>
   `);
 }
 
