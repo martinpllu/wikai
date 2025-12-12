@@ -22,6 +22,12 @@ import {
   addReplyToInlineComment,
   resolveInlineComment,
   TextAnchor,
+  addVersion,
+  revertToVersion,
+  getVersionHistory,
+  getVersion,
+  getCurrentVersion,
+  PageVersion,
 } from './wiki.js';
 import { invokeClaude, invokeClaudeStreaming } from './openrouter.js';
 import { homePage } from './views/home.js';
@@ -131,9 +137,12 @@ app.post('/wiki/:slug/chat', async (c) => {
 
     const topic = unslugify(slug);
     const userMessage = message.trim();
-    await generatePage(topic, userMessage);
+    const { content } = await generatePage(topic, userMessage);
 
-    // Append to edit history using new PageData structure
+    // Add version for the edit
+    await addVersion(slug, content, userMessage, 'edit');
+
+    // Append to edit history using new PageData structure (for backward compat)
     const pageData = await readPageData(slug);
     const timestamp = new Date().toISOString();
     pageData.editHistory.push(
@@ -400,6 +409,9 @@ app.post('/wiki/:slug/inline-edit', async (c) => {
       // The LLM returns the full updated page content
       await writePage(slug, updatedContent);
 
+      // Add version for the edit
+      await addVersion(slug, updatedContent, instruction.trim(), 'edit');
+
       await stream.writeSSE({
         event: 'complete',
         data: JSON.stringify({ success: true }),
@@ -413,6 +425,61 @@ app.post('/wiki/:slug/inline-edit', async (c) => {
       });
     }
   });
+});
+
+// ============================================
+// Version History Routes
+// ============================================
+
+// Get version history for a page
+app.get('/wiki/:slug/history', async (c) => {
+  const slug = c.req.param('slug');
+  const exists = await pageExists(slug);
+
+  if (!exists) {
+    return c.json({ error: 'Page not found' }, 404);
+  }
+
+  const versions = await getVersionHistory(slug);
+  const currentVersion = await getCurrentVersion(slug);
+  return c.json({ versions, currentVersion });
+});
+
+// Get a specific version for preview
+app.get('/wiki/:slug/version/:version', async (c) => {
+  const slug = c.req.param('slug');
+  const versionNum = parseInt(c.req.param('version'));
+
+  if (isNaN(versionNum) || versionNum < 1) {
+    return c.json({ error: 'Invalid version number' }, 400);
+  }
+
+  const version = await getVersion(slug, versionNum);
+  if (!version) {
+    return c.json({ error: 'Version not found' }, 404);
+  }
+
+  // Render to HTML for preview
+  const html = await renderMarkdown(version.content);
+  return c.json({ version, html });
+});
+
+// Revert to a specific version
+app.post('/wiki/:slug/revert', async (c) => {
+  const slug = c.req.param('slug');
+  const body = await c.req.parseBody();
+  const targetVersion = parseInt(body['version'] as string);
+
+  if (isNaN(targetVersion) || targetVersion < 1) {
+    return c.json({ error: 'Invalid version number' }, 400);
+  }
+
+  const result = await revertToVersion(slug, targetVersion);
+  if (!result) {
+    return c.json({ error: 'Version not found' }, 404);
+  }
+
+  return c.json({ success: true, currentVersion: targetVersion });
 });
 
 // Start server

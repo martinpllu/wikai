@@ -234,10 +234,25 @@ export interface InlineComment extends CommentThread {
   anchor: TextAnchor;
 }
 
+// ============================================
+// Page Versioning
+// ============================================
+
+export interface PageVersion {
+  version: number;           // 1-indexed version number
+  content: string;           // Full markdown content snapshot
+  editPrompt: string | null; // User's edit instruction (null for initial generation)
+  timestamp: string;         // ISO timestamp
+  createdBy: 'generation' | 'edit' | 'revert';
+  revertedFrom?: number;     // If createdBy='revert', source version
+}
+
 export interface PageData {
   editHistory: ChatMessage[];
   pageComments: CommentThread[];
   inlineComments: InlineComment[];
+  versions?: PageVersion[];    // All versions including hidden ones past pointer
+  currentVersion?: number;     // Pointer to active version (1-indexed)
 }
 
 function generateId(): string {
@@ -275,6 +290,130 @@ export async function readPageData(slug: string): Promise<PageData> {
 export async function writePageData(slug: string, data: PageData): Promise<void> {
   await fs.mkdir(config.dataDir, { recursive: true });
   await fs.writeFile(getChatHistoryPath(slug), JSON.stringify(data, null, 2));
+}
+
+// ============================================
+// Page Versioning Functions
+// ============================================
+
+/**
+ * Ensures versions array is initialized. Creates v1 from current .md content if missing.
+ * Mutates pageData in place.
+ */
+async function ensureVersionsInitialized(pageData: PageData, slug: string): Promise<void> {
+  if (pageData.versions && pageData.versions.length > 0) {
+    return;
+  }
+
+  // Migration: create initial version from current content
+  const content = await readPage(slug) || '';
+  pageData.versions = [{
+    version: 1,
+    content,
+    editPrompt: null,
+    timestamp: new Date().toISOString(),
+    createdBy: 'generation',
+  }];
+  pageData.currentVersion = 1;
+}
+
+/**
+ * Adds a new version after an edit. Returns the new version.
+ */
+export async function addVersion(
+  slug: string,
+  content: string,
+  editPrompt: string,
+  createdBy: 'generation' | 'edit' | 'revert' = 'edit'
+): Promise<PageVersion> {
+  const pageData = await readPageData(slug);
+  await ensureVersionsInitialized(pageData, slug);
+
+  // Get next version number (always incrementing, even after reverts)
+  const nextVersion = pageData.versions!.length + 1;
+
+  const newVersion: PageVersion = {
+    version: nextVersion,
+    content,
+    editPrompt,
+    timestamp: new Date().toISOString(),
+    createdBy,
+  };
+
+  pageData.versions!.push(newVersion);
+  pageData.currentVersion = nextVersion;
+
+  await writePageData(slug, pageData);
+  return newVersion;
+}
+
+/**
+ * Reverts to a previous version by moving the pointer.
+ * Versions beyond the pointer remain on disk but are hidden from UI.
+ */
+export async function revertToVersion(
+  slug: string,
+  targetVersion: number
+): Promise<PageVersion | null> {
+  const pageData = await readPageData(slug);
+  await ensureVersionsInitialized(pageData, slug);
+
+  const targetVersionData = pageData.versions!.find(v => v.version === targetVersion);
+  if (!targetVersionData || targetVersion > pageData.currentVersion!) {
+    return null;
+  }
+
+  // Update pointer - versions beyond are now "hidden"
+  pageData.currentVersion = targetVersion;
+
+  // Write the reverted content to .md file
+  await writePage(slug, targetVersionData.content);
+  await writePageData(slug, pageData);
+
+  return targetVersionData;
+}
+
+/**
+ * Returns visible versions (up to current pointer) for UI display.
+ * Most recent first.
+ */
+export async function getVersionHistory(slug: string): Promise<PageVersion[]> {
+  const pageData = await readPageData(slug);
+  await ensureVersionsInitialized(pageData, slug);
+  await writePageData(slug, pageData); // Persist migration if it happened
+
+  // Only return versions up to current pointer
+  const visible = pageData.versions!.filter(v => v.version <= pageData.currentVersion!);
+  // Return most recent first
+  return visible.slice().reverse();
+}
+
+/**
+ * Gets a specific version for preview.
+ */
+export async function getVersion(
+  slug: string,
+  version: number
+): Promise<PageVersion | null> {
+  const pageData = await readPageData(slug);
+  await ensureVersionsInitialized(pageData, slug);
+
+  // Only allow access to versions up to current pointer
+  if (version < 1 || version > pageData.currentVersion!) {
+    return null;
+  }
+
+  return pageData.versions!.find(v => v.version === version) || null;
+}
+
+/**
+ * Gets current version number for a page.
+ */
+export async function getCurrentVersion(slug: string): Promise<number> {
+  const pageData = await readPageData(slug);
+  await ensureVersionsInitialized(pageData, slug);
+  await writePageData(slug, pageData); // Persist migration if it happened
+  return pageData.currentVersion!;
 }
 
 // ============================================

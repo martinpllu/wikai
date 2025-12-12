@@ -1,5 +1,5 @@
 import { layout } from './layout.js';
-import type { ChatMessage, PageInfo, PageData, CommentThread, InlineComment } from '../wiki.js';
+import type { PageInfo, PageData, CommentThread, InlineComment } from '../wiki.js';
 import { injectInlineHighlights } from '../wiki.js';
 
 function formatTimestamp(isoString: string): string {
@@ -33,24 +33,6 @@ function renderSimpleMarkdown(text: string): string {
   // Line breaks
   s = s.replace(/\n/g, '<br>');
   return s;
-}
-
-function renderEditHistory(history: ChatMessage[]): string {
-  if (history.length === 0) return '<p class="no-history">No edit history yet.</p>';
-
-  const messages = history.map(msg => `
-    <div class="chat-message chat-message-${msg.role}">
-      <span class="chat-timestamp">${formatTimestamp(msg.timestamp)}</span>
-      <span class="chat-content">${escapeHtml(msg.content)}</span>
-    </div>
-  `).join('');
-
-  return `
-    <div class="chat-history">
-      <h4>Edit History</h4>
-      ${messages}
-    </div>
-  `;
 }
 
 function renderCommentThread(thread: CommentThread, _slug: string, isInline: boolean = false): string {
@@ -189,7 +171,6 @@ export function wikiPage(
 
       <!-- Edit Tab Content -->
       <div class="chat-tab-content hidden" id="tab-edit">
-        ${renderEditHistory(pageData.editHistory)}
         <form action="/wiki/${slug}/chat" method="POST" class="chat-form" id="edit-form">
           <textarea
             name="message"
@@ -200,8 +181,32 @@ export function wikiPage(
           ></textarea>
           <button type="submit" id="edit-submit">Apply Edit</button>
         </form>
+
+        <!-- Version History -->
+        <div class="version-history" id="version-history">
+          <h4>Version History</h4>
+          <div class="version-list" id="version-list">
+            <p class="loading-versions"><span class="spinner"></span> Loading versions...</p>
+          </div>
+        </div>
       </div>
     </section>
+
+    <!-- Version Preview Modal -->
+    <div class="version-preview-modal hidden" id="version-preview-modal">
+      <div class="modal-backdrop" id="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Version <span id="preview-version-num"></span></h3>
+          <button class="modal-close" id="modal-close">&times;</button>
+        </div>
+        <div class="modal-body wiki-content" id="preview-content"></div>
+        <div class="modal-footer">
+          <button class="btn-cancel" id="preview-cancel">Cancel</button>
+          <button class="btn-revert" id="preview-revert">Revert to this version</button>
+        </div>
+      </div>
+    </div>
 
     <script>
       (function() {
@@ -846,6 +851,139 @@ export function wikiPage(
             }
           }
         });
+
+        // ============================================
+        // Version History
+        // ============================================
+        const versionList = document.getElementById('version-list');
+        const previewModal = document.getElementById('version-preview-modal');
+        const previewContent = document.getElementById('preview-content');
+        const previewVersionNum = document.getElementById('preview-version-num');
+        const previewRevertBtn = document.getElementById('preview-revert');
+
+        let currentVersionNum = 1;
+
+        function formatVersionTimestamp(isoString) {
+          const date = new Date(isoString);
+          return date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+        }
+
+        async function loadVersionHistory() {
+          try {
+            const response = await fetch('/wiki/' + slug + '/history');
+            const data = await response.json();
+
+            if (!data.versions || data.versions.length === 0) {
+              versionList.innerHTML = '<p class="no-versions">No version history yet.</p>';
+              return;
+            }
+
+            currentVersionNum = data.currentVersion;
+
+            const versionsHtml = data.versions.map(v => {
+              const isCurrent = v.version === currentVersionNum;
+              const promptPreview = v.editPrompt
+                ? escapeHtml(v.editPrompt.slice(0, 60)) + (v.editPrompt.length > 60 ? '...' : '')
+                : '(Initial generation)';
+
+              return \`
+                <div class="version-item \${isCurrent ? 'version-current' : ''}" data-version="\${v.version}">
+                  <div class="version-header">
+                    <span class="version-number">v\${v.version}</span>
+                    <span class="version-timestamp">\${formatVersionTimestamp(v.timestamp)}</span>
+                    \${isCurrent ? '<span class="version-badge">Current</span>' : ''}
+                  </div>
+                  <div class="version-prompt">\${promptPreview}</div>
+                  <div class="version-actions">
+                    <button class="btn-preview-version" data-version="\${v.version}">Preview</button>
+                    \${!isCurrent ? \`<button class="btn-revert-version" data-version="\${v.version}">Revert</button>\` : ''}
+                  </div>
+                </div>
+              \`;
+            }).join('');
+
+            versionList.innerHTML = versionsHtml;
+          } catch (error) {
+            versionList.innerHTML = '<p class="error">Failed to load version history</p>';
+            console.error('Failed to load version history:', error);
+          }
+        }
+
+        async function previewVersion(versionNum) {
+          try {
+            const response = await fetch('/wiki/' + slug + '/version/' + versionNum);
+            const data = await response.json();
+
+            previewVersionNum.textContent = versionNum;
+            previewContent.innerHTML = data.html;
+            previewRevertBtn.dataset.version = versionNum;
+
+            // Hide revert button if this is the current version
+            previewRevertBtn.style.display = versionNum === currentVersionNum ? 'none' : 'inline-block';
+
+            previewModal.classList.remove('hidden');
+          } catch (error) {
+            alert('Failed to load version preview');
+            console.error('Failed to load version:', error);
+          }
+        }
+
+        async function revertToVersion(versionNum) {
+          if (!confirm('Revert to version ' + versionNum + '? Later versions will be hidden but can be recovered.')) {
+            return;
+          }
+
+          try {
+            const formData = new FormData();
+            formData.append('version', versionNum);
+
+            const response = await fetch('/wiki/' + slug + '/revert', {
+              method: 'POST',
+              body: formData,
+            });
+
+            const result = await response.json();
+            if (result.success) {
+              window.location.reload();
+            } else {
+              alert('Error: ' + result.error);
+            }
+          } catch (error) {
+            alert('Error reverting: ' + error.message);
+          }
+        }
+
+        function hidePreviewModal() {
+          previewModal.classList.add('hidden');
+        }
+
+        // Event listeners for version history
+        versionList.addEventListener('click', (e) => {
+          const target = e.target;
+
+          if (target.classList.contains('btn-preview-version')) {
+            previewVersion(parseInt(target.dataset.version));
+          }
+          if (target.classList.contains('btn-revert-version')) {
+            revertToVersion(parseInt(target.dataset.version));
+          }
+        });
+
+        // Modal event listeners
+        document.getElementById('modal-close').addEventListener('click', hidePreviewModal);
+        document.getElementById('preview-cancel').addEventListener('click', hidePreviewModal);
+        document.getElementById('modal-backdrop').addEventListener('click', hidePreviewModal);
+        previewRevertBtn.addEventListener('click', () => {
+          revertToVersion(parseInt(previewRevertBtn.dataset.version));
+        });
+
+        // Load version history on page load
+        loadVersionHistory();
       })();
     </script>
   `,
