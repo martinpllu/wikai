@@ -30,16 +30,16 @@ export function layout(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - WikAI</title>
+  <title>${title} - delve</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <aside class="sidebar" id="sidebar" data-pages='${pagesJson}' data-current-slug="${currentSlug}" data-project="${project}" data-projects='${projectsJson}'>
     <div class="sidebar-header">
-      <a href="/p/${project}" class="logo">WikAI</a>
+      <a href="/p/${project}" class="logo">wikai</a>
       <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -164,9 +164,9 @@ export function layout(
   <script type="module">
     // ===== STATE =====
     const state = {
-      sidebarOpen: localStorage.getItem('wikai-sidebar') !== 'false',
-      sortMode: localStorage.getItem('wikai-sort') || 'recent',
-      favorites: JSON.parse(localStorage.getItem('wikai-favorites') || '[]'),
+      sidebarOpen: localStorage.getItem('delve-sidebar') !== 'false',
+      sortMode: localStorage.getItem('delve-sort') || 'recent',
+      favorites: JSON.parse(localStorage.getItem('delve-favorites') || '[]'),
       searchQuery: '',
       pages: [],
       currentSlug: '',
@@ -244,9 +244,9 @@ export function layout(
 
     // ===== STATE PERSISTENCE =====
     function saveState() {
-      localStorage.setItem('wikai-sidebar', state.sidebarOpen);
-      localStorage.setItem('wikai-sort', state.sortMode);
-      localStorage.setItem('wikai-favorites', JSON.stringify(state.favorites));
+      localStorage.setItem('delve-sidebar', state.sidebarOpen);
+      localStorage.setItem('delve-sort', state.sortMode);
+      localStorage.setItem('delve-favorites', JSON.stringify(state.favorites));
     }
 
     // ===== SIDEBAR TOGGLE =====
@@ -343,7 +343,6 @@ export function layout(
       return \`
         <li class="page-item\${isActive ? ' active' : ''}" data-slug="\${page.slug}">
           <a href="/p/\${state.currentProject}/wiki/\${page.slug}">
-            <span class="page-icon">📄</span>
             <span class="page-title">\${page.title}</span>
           </a>
           <button class="favorite-btn\${isFav ? ' active' : ''}" data-slug="\${page.slug}" aria-label="\${isFav ? 'Remove from' : 'Add to'} favorites">

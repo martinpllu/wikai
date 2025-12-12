@@ -69,7 +69,7 @@ function renderCommentThread(thread: CommentThread, _slug: string, isInline: boo
 
 function renderPageComments(comments: CommentThread[], slug: string): string {
   if (comments.length === 0) {
-    return '<p class="no-comments">No questions yet. Ask something below!</p>';
+    return '';
   }
 
   return comments.map(thread => renderCommentThread(thread, slug, false)).join('');

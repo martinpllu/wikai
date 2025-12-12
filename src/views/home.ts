@@ -8,14 +8,10 @@ export function homePage(pages: PageInfo[], project: string = 'default', project
     project,
     projects,
     content: `
-    <section class="hero">
-      <h1>Welcome to WikAI</h1>
-      <p>Your personal AI-powered wiki. Enter a topic to generate a knowledge page.</p>
-    </section>
-
     <section class="generate-section" id="generate-section">
+      <h1>Create new page</h1>
       <form action="/p/${project}/generate" method="POST" class="generate-form" id="generate-form">
-        <label for="topic">Topic</label>
+        <label for="topic">What would you like to know about?</label>
         <textarea
           id="topic"
           name="topic"
@@ -24,10 +20,7 @@ export function homePage(pages: PageInfo[], project: string = 'default', project
           required
           autofocus
         ></textarea>
-        <div class="form-footer">
-          <button type="submit" id="generate-btn">Generate Page</button>
-          <span class="submit-hint">⌘↵ to submit</span>
-        </div>
+        <button type="submit" id="generate-btn">Create <kbd class="shortcut-hint" data-mac="⌘↵" data-other="Ctrl+↵"></kbd></button>
       </form>
     </section>
 
