@@ -15,11 +15,11 @@ export function homePage(pages: PageInfo[], project: string = 'default', project
 
     <section class="generate-section" id="generate-section">
       <form action="/p/${project}/generate" method="POST" class="generate-form" id="generate-form">
-        <label for="topic">Topic or Question</label>
+        <label for="topic">Topic</label>
         <textarea
           id="topic"
           name="topic"
-          placeholder="e.g., PostgreSQL, How does DNS work?, Machine Learning basics..."
+          placeholder="e.g., Machine Learning, Ancient Greece, Sourdough Bread, DNS..."
           rows="3"
           required
           autofocus
