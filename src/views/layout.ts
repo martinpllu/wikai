@@ -46,7 +46,7 @@ export function layout(
 
     <div class="sidebar-search">
       <input type="text" placeholder="Search pages..." id="search-input" autocomplete="off" />
-      <kbd class="shortcut-hint">⌘K</kbd>
+      <kbd class="shortcut-hint" data-mac="⌘K" data-other="Ctrl+K"></kbd>
     </div>
 
     <div class="sidebar-controls">
@@ -70,7 +70,7 @@ export function layout(
       <a href="/" class="new-page-btn" id="new-page-btn">
         <span class="new-page-icon">+</span>
         <span>New Page</span>
-        <kbd class="shortcut-hint">⌘N</kbd>
+        <kbd class="shortcut-hint" data-mac="⌘P" data-other="Ctrl+P"></kbd>
       </a>
     </div>
   </aside>
@@ -108,6 +108,10 @@ export function layout(
     const favoritesList = document.getElementById('favorites-list');
     const favoritesSection = document.getElementById('favorites-section');
 
+    // ===== PLATFORM DETECTION =====
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
     // ===== INITIALIZATION =====
     function init() {
       // Load pages from data attribute
@@ -123,11 +127,27 @@ export function layout(
       state.favorites = state.favorites.filter(slug => slugSet.has(slug));
       saveState();
 
+      // Initialize shortcut hints (hide on touch, show platform-appropriate text)
+      initShortcutHints();
+
       // Apply initial state
       applySidebarState();
       applySortState();
       render();
       bindEvents();
+    }
+
+    // ===== SHORTCUT HINTS =====
+    function initShortcutHints() {
+      const hints = document.querySelectorAll('.shortcut-hint');
+      hints.forEach(hint => {
+        if (isTouchDevice) {
+          hint.style.display = 'none';
+        } else {
+          const text = isMac ? hint.dataset.mac : hint.dataset.other;
+          hint.textContent = text || '';
+        }
+      });
     }
 
     // ===== STATE PERSISTENCE =====
@@ -306,7 +326,6 @@ export function layout(
 
     // ===== KEYBOARD SHORTCUTS =====
     function handleKeydown(e) {
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modKey = isMac ? e.metaKey : e.ctrlKey;
 
       // Cmd/Ctrl + K - Focus search
@@ -327,8 +346,8 @@ export function layout(
         toggleSidebar();
       }
 
-      // Cmd/Ctrl + N - New page
-      if (modKey && e.key === 'n') {
+      // Cmd/Ctrl + P - New page
+      if (modKey && e.key === 'p') {
         e.preventDefault();
         window.location.href = '/';
       }
