@@ -35,10 +35,13 @@ import {
   getVersion,
   getCurrentVersion,
   PageVersion,
+  readSettings,
+  writeSettings,
 } from './wiki.js';
 import { invokeClaude, invokeClaudeStreaming } from './openrouter.js';
 import { homePage } from './views/home.js';
 import { wikiPage, errorPage, generatePageView } from './views/page.js';
+import { settingsPage } from './views/settings.js';
 
 const app = new Hono();
 
@@ -74,6 +77,35 @@ app.post('/api/projects', async (c) => {
 
   const sanitizedName = slugify(name.trim());
   return c.json({ success: true, project: sanitizedName });
+});
+
+// ============================================
+// Settings Routes
+// ============================================
+
+// Settings page
+app.get('/settings', async (c) => {
+  const [settings, pages, projects] = await Promise.all([
+    readSettings(),
+    listPages(DEFAULT_PROJECT),
+    listProjects(),
+  ]);
+  return c.html(settingsPage(settings, pages, DEFAULT_PROJECT, projects));
+});
+
+// Save settings
+app.post('/settings', async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const systemPrompt = typeof body['systemPrompt'] === 'string' ? body['systemPrompt'] : '';
+
+    await writeSettings({ systemPrompt });
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Settings error:', error);
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: msg }, 500);
+  }
 });
 
 // ============================================
@@ -128,6 +160,10 @@ app.post('/p/:project/generate', async (c) => {
     });
   }
 
+  // Get user's custom system prompt
+  const settings = await readSettings();
+  const systemPrompt = settings.systemPrompt || undefined;
+
   return streamSSE(c, async (stream) => {
     try {
       // Send start event
@@ -137,7 +173,7 @@ app.post('/p/:project/generate', async (c) => {
       });
 
       // Stream content chunks
-      const generator = generatePageStreaming(topicStr, undefined, project);
+      const generator = generatePageStreaming(topicStr, undefined, project, systemPrompt);
       let result = await generator.next();
 
       while (!result.done) {
@@ -213,7 +249,9 @@ app.post('/p/:project/wiki/:slug/chat', async (c) => {
 
     const topic = unslugify(slug);
     const userMessage = message.trim();
-    const { content } = await generatePage(topic, userMessage, project);
+    const settings = await readSettings();
+    const systemPrompt = settings.systemPrompt || undefined;
+    const { content } = await generatePage(topic, userMessage, project, systemPrompt);
 
     // Add version for the edit
     await addVersion(slug, content, userMessage, 'edit', project);
@@ -259,8 +297,10 @@ app.post('/p/:project/wiki/:slug/comment', async (c) => {
     }
 
     // Generate AI response
+    const settings = await readSettings();
+    const systemPrompt = settings.systemPrompt || undefined;
     const prompt = buildCommentPrompt(pageContent, null, message.trim());
-    const aiResponse = await invokeClaude(prompt);
+    const aiResponse = await invokeClaude(prompt, systemPrompt);
 
     // Save comment with AI response
     const thread = await addPageComment(slug, message.trim(), aiResponse, project);
@@ -301,8 +341,10 @@ app.post('/p/:project/wiki/:slug/comment/:id/reply', async (c) => {
         role: msg.role,
         content: msg.content,
       }));
+      const settings = await readSettings();
+      const systemPrompt = settings.systemPrompt || undefined;
       const prompt = buildCommentPrompt(pageContent, null, message.trim(), conversationHistory);
-      const aiResponse = await invokeClaude(prompt);
+      const aiResponse = await invokeClaude(prompt, systemPrompt);
       thread = await addReplyToPageComment(slug, threadId, aiResponse, 'assistant', project);
     }
 
@@ -373,8 +415,10 @@ app.post('/p/:project/wiki/:slug/inline', async (c) => {
     }
 
     // Generate AI response
+    const settings = await readSettings();
+    const systemPrompt = settings.systemPrompt || undefined;
     const prompt = buildCommentPrompt(pageContent, text, message.trim());
-    const aiResponse = await invokeClaude(prompt);
+    const aiResponse = await invokeClaude(prompt, systemPrompt);
 
     // Save inline comment with AI response
     const thread = await addInlineComment(slug, anchor, message.trim(), aiResponse, project);
@@ -416,8 +460,10 @@ app.post('/p/:project/wiki/:slug/inline/:id/reply', async (c) => {
         role: msg.role,
         content: msg.content,
       }));
+      const settings = await readSettings();
+      const systemPrompt = settings.systemPrompt || undefined;
       const prompt = buildCommentPrompt(pageContent, selectedText, message.trim(), conversationHistory);
-      const aiResponse = await invokeClaude(prompt);
+      const aiResponse = await invokeClaude(prompt, systemPrompt);
       thread = await addReplyToInlineComment(slug, threadId, aiResponse, 'assistant', project);
     }
 
@@ -476,12 +522,15 @@ app.post('/p/:project/wiki/:slug/inline-edit', async (c) => {
     return c.json({ error: 'Page not found' }, 404);
   }
 
+  const settings = await readSettings();
+  const systemPrompt = settings.systemPrompt || undefined;
+
   return streamSSE(c, async (stream) => {
     try {
       const prompt = buildInlineEditPrompt(pageContent, text, instruction.trim());
 
       let updatedContent = '';
-      for await (const chunk of invokeClaudeStreaming(prompt)) {
+      for await (const chunk of invokeClaudeStreaming(prompt, systemPrompt)) {
         updatedContent += chunk;
         await stream.writeSSE({
           event: 'chunk',

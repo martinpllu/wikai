@@ -101,6 +101,12 @@ export function layout(
         <span>New Page</span>
         <kbd class="shortcut-hint" data-mac="⌘P" data-other="Ctrl+P"></kbd>
       </a>
+      <a href="/settings" class="settings-link" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M6.5 1.5L6.9 3.1C6.3 3.3 5.8 3.6 5.3 4L3.8 3.3L2.3 5.7L3.5 6.8C3.4 7.3 3.4 7.7 3.5 8.2L2.3 9.3L3.8 11.7L5.3 11C5.8 11.4 6.3 11.7 6.9 11.9L6.5 13.5H9.5L9.1 11.9C9.7 11.7 10.2 11.4 10.7 11L12.2 11.7L13.7 9.3L12.5 8.2C12.6 7.7 12.6 7.3 12.5 6.8L13.7 5.7L12.2 3.3L10.7 4C10.2 3.6 9.7 3.3 9.1 3.1L9.5 1.5H6.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+          <circle cx="8" cy="7.5" r="2" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+      </a>
     </div>
   </aside>
 

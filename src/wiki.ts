@@ -4,6 +4,36 @@ import { marked } from 'marked';
 import { config, buildPrompt } from './config.js';
 import { invokeClaude, invokeClaudeStreaming } from './openrouter.js';
 
+// ============================================
+// User Settings
+// ============================================
+
+export interface UserSettings {
+  systemPrompt: string;
+}
+
+const DEFAULT_SETTINGS: UserSettings = {
+  systemPrompt: '',
+};
+
+function getSettingsPath(): string {
+  return path.join(config.dataDir, 'settings.json');
+}
+
+export async function readSettings(): Promise<UserSettings> {
+  try {
+    const data = await fs.readFile(getSettingsPath(), 'utf-8');
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+export async function writeSettings(settings: UserSettings): Promise<void> {
+  await fs.mkdir(config.dataDir, { recursive: true });
+  await fs.writeFile(getSettingsPath(), JSON.stringify(settings, null, 2));
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -317,13 +347,14 @@ export async function renderMarkdown(content: string, project: string = DEFAULT_
 export async function generatePage(
   topic: string,
   userMessage?: string,
-  project: string = DEFAULT_PROJECT
+  project: string = DEFAULT_PROJECT,
+  systemPrompt?: string
 ): Promise<{ slug: string; content: string }> {
   const slug = slugify(topic);
   const existingContent = await readPage(slug, project);
 
   const prompt = buildPrompt(topic, existingContent ?? undefined, userMessage);
-  const markdownContent = await invokeClaude(prompt);
+  const markdownContent = await invokeClaude(prompt, systemPrompt);
 
   await writePage(slug, markdownContent, project);
 
@@ -336,7 +367,8 @@ export async function generatePage(
 export async function* generatePageStreaming(
   topic: string,
   userMessage?: string,
-  project: string = DEFAULT_PROJECT
+  project: string = DEFAULT_PROJECT,
+  systemPrompt?: string
 ): AsyncGenerator<string, { slug: string; content: string }> {
   const slug = slugify(topic);
   const existingContent = await readPage(slug, project);
@@ -344,7 +376,7 @@ export async function* generatePageStreaming(
   const prompt = buildPrompt(topic, existingContent ?? undefined, userMessage);
 
   let fullContent = '';
-  for await (const chunk of invokeClaudeStreaming(prompt)) {
+  for await (const chunk of invokeClaudeStreaming(prompt, systemPrompt)) {
     fullContent += chunk;
     yield chunk;
   }

@@ -21,12 +21,18 @@ interface OpenRouterStreamChunk {
   }>;
 }
 
-export async function invokeClaude(prompt: string): Promise<string> {
+export async function invokeClaude(prompt: string, systemPrompt?: string): Promise<string> {
   if (!config.openrouterApiKey) {
     throw new Error('OPENROUTER_API_KEY is not set. Add it to .env file or set as environment variable.');
   }
 
   console.log('Invoking OpenRouter API with prompt length:', prompt.length);
+
+  const messages: Array<{ role: string; content: string }> = [];
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  messages.push({ role: 'user', content: prompt });
 
   const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
@@ -39,9 +45,7 @@ export async function invokeClaude(prompt: string): Promise<string> {
     body: JSON.stringify({
       model: config.model,
       max_tokens: 1024,
-      messages: [
-        { role: 'user', content: prompt }
-      ],
+      messages,
     }),
   });
 
@@ -67,12 +71,18 @@ export async function invokeClaude(prompt: string): Promise<string> {
 /**
  * Streaming version - yields content chunks as they arrive
  */
-export async function* invokeClaudeStreaming(prompt: string): AsyncGenerator<string> {
+export async function* invokeClaudeStreaming(prompt: string, systemPrompt?: string): AsyncGenerator<string> {
   if (!config.openrouterApiKey) {
     throw new Error('OPENROUTER_API_KEY is not set. Add it to .env file or set as environment variable.');
   }
 
   console.log('Invoking OpenRouter API (streaming) with prompt length:', prompt.length);
+
+  const messages: Array<{ role: string; content: string }> = [];
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  messages.push({ role: 'user', content: prompt });
 
   const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
@@ -86,9 +96,7 @@ export async function* invokeClaudeStreaming(prompt: string): AsyncGenerator<str
       model: config.model,
       max_tokens: 1024,
       stream: true,
-      messages: [
-        { role: 'user', content: prompt }
-      ],
+      messages,
     }),
   });
 

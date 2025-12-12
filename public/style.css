@@ -502,9 +502,13 @@ body {
 .sidebar-footer {
   padding: 12px 14px;
   border-top: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .new-page-btn {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -542,6 +546,22 @@ body {
   color: rgba(255, 255, 255, 0.8);
   font-size: 0.65rem;
   padding: 2px 5px;
+}
+
+.settings-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.settings-link:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* Empty State */
@@ -1780,6 +1800,111 @@ body[data-sidebar-open="false"] main {
 .btn-delete-page:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ===== SETTINGS PAGE ===== */
+.settings-page {
+  max-width: 600px;
+}
+
+.settings-page h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.settings-form {
+  background: var(--bg-sidebar);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+}
+
+.settings-section {
+  margin-bottom: 1.5rem;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.settings-description {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.settings-section textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-section textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.settings-section textarea:focus {
+  outline: none;
+  border-color: var(--text-link);
+  box-shadow: 0 0 0 3px rgba(35, 131, 226, 0.15);
+}
+
+.settings-form .form-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.settings-form .form-footer button {
+  padding: 0.625rem 1.25rem;
+  background: var(--text-link);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin: 0;
+}
+
+.settings-form .form-footer button:hover {
+  background: #1a73c7;
+}
+
+.settings-form .form-footer button:disabled {
+  background: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.save-status {
+  font-size: 0.875rem;
+}
+
+.save-status.success {
+  color: #28a745;
+}
+
+.save-status.error {
+  color: var(--accent-error);
 }
 
 /* ===== UTILITY ===== */
