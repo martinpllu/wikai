@@ -381,6 +381,11 @@ export function layout(
     } else {
       init();
     }
+
+    // Reload page when navigating back (bfcache) to refresh wiki link colors
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) location.reload();
+    });
   </script>
 </body>
 </html>`;
