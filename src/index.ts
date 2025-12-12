@@ -118,6 +118,16 @@ app.post('/p/:project/generate', async (c) => {
   const topicStr = topic.trim();
   const slug = slugify(topicStr);
 
+  // If page already exists, redirect immediately without regenerating
+  if (await pageExists(slug, project)) {
+    return streamSSE(c, async (stream) => {
+      await stream.writeSSE({
+        event: 'complete',
+        data: JSON.stringify({ slug, url: `/p/${project}/wiki/${slug}` }),
+      });
+    });
+  }
+
   return streamSSE(c, async (stream) => {
     try {
       // Send start event

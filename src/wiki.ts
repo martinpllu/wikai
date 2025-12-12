@@ -8,9 +8,11 @@ export function slugify(text: string): string {
   return text
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
+    .replace(/[^\w\s-]/g, '')    // remove non-word chars except spaces and hyphens
+    .replace(/\s+/g, '-')         // spaces to hyphens
+    .replace(/-+/g, '-')          // collapse multiple hyphens
+    .replace(/^-+|-+$/g, '')      // trim leading/trailing hyphens
+    .slice(0, 100);               // limit length for filesystem safety
 }
 
 export function unslugify(slug: string): string {
@@ -72,11 +74,17 @@ export async function projectExists(project: string): Promise<boolean> {
 }
 
 export async function createProject(name: string): Promise<{ success: boolean; error?: string }> {
-  // Validate project name
-  const sanitized = slugify(name);
-  if (!sanitized) {
-    return { success: false, error: 'Invalid project name' };
+  // Validate project name - only allow alphanumeric, hyphens, and underscores
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { success: false, error: 'Please provide a project name' };
   }
+
+  if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+    return { success: false, error: 'Project name can only contain letters, numbers, hyphens, and underscores' };
+  }
+
+  const sanitized = trimmed.toLowerCase();
 
   // Check if project already exists
   if (await projectExists(sanitized)) {

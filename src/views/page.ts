@@ -230,6 +230,43 @@ export function wikiPage(
         const inlineComments = ${inlineCommentsJson};
 
         // ============================================
+        // Cmd/Ctrl+Enter to Submit
+        // ============================================
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+        function handleCmdEnter(textarea, submitFn) {
+          textarea.addEventListener('keydown', (e) => {
+            const modKey = isMac ? e.metaKey : e.ctrlKey;
+            if (modKey && e.key === 'Enter') {
+              e.preventDefault();
+              submitFn();
+            }
+          });
+        }
+
+        // Also handle dynamically created textareas (popovers, reply forms)
+        document.addEventListener('keydown', (e) => {
+          const modKey = isMac ? e.metaKey : e.ctrlKey;
+          if (modKey && e.key === 'Enter' && e.target.tagName === 'TEXTAREA') {
+            const popoverTextarea = document.getElementById('popover-textarea');
+            if (e.target === popoverTextarea) {
+              e.preventDefault();
+              const submitBtn = document.getElementById('popover-submit');
+              const inlineSubmitBtn = document.querySelector('.btn-submit-inline');
+              if (submitBtn) submitBtn.click();
+              else if (inlineSubmitBtn) inlineSubmitBtn.click();
+            }
+            // Reply form textareas
+            const replyForm = e.target.closest('.reply-form');
+            if (replyForm) {
+              e.preventDefault();
+              const submitBtn = replyForm.querySelector('.btn-submit-reply');
+              if (submitBtn) submitBtn.click();
+            }
+          }
+        });
+
+        // ============================================
         // Tab Switching
         // ============================================
         const tabs = document.querySelectorAll('.chat-tab');
@@ -263,6 +300,9 @@ export function wikiPage(
           editButton.innerHTML = '<span class="spinner"></span> Updating...';
         });
 
+        // Cmd/Ctrl+Enter to submit edit form
+        handleCmdEnter(editTextarea, () => editForm.requestSubmit());
+
         // ============================================
         // Page Comment Form
         // ============================================
@@ -270,6 +310,9 @@ export function wikiPage(
         const commentTextarea = document.getElementById('comment-message');
         const commentButton = document.getElementById('comment-submit');
         const pageCommentsContainer = document.getElementById('page-comments');
+
+        // Cmd/Ctrl+Enter to submit comment form
+        handleCmdEnter(commentTextarea, () => commentForm.requestSubmit());
 
         commentForm.addEventListener('submit', async (e) => {
           e.preventDefault();
@@ -546,9 +589,6 @@ export function wikiPage(
             <div class="popover-reply-form">
               <textarea id="popover-textarea" placeholder="Reply..." rows="2"></textarea>
               <div class="popover-buttons">
-                <button class="btn-resolve-inline" data-comment-id="\${thread.id}" data-resolved="false">
-                  Resolve
-                </button>
                 <button class="btn-submit-inline" data-comment-id="\${thread.id}">Reply</button>
               </div>
             </div>
@@ -736,9 +776,6 @@ export function wikiPage(
             <div class="popover-reply-form">
               <textarea id="popover-textarea" placeholder="Reply..." rows="2"></textarea>
               <div class="popover-buttons">
-                <button class="btn-resolve-inline" data-comment-id="\${commentId}" data-resolved="\${comment.resolved}">
-                  \${comment.resolved ? 'Unresolve' : 'Resolve'}
-                </button>
                 <button class="btn-submit-inline" data-comment-id="\${commentId}">Reply</button>
               </div>
             </div>
@@ -825,45 +862,6 @@ export function wikiPage(
             } catch (error) {
               alert('Error: ' + error.message);
               window.location.reload();
-            }
-          }
-
-          // Resolve inline comment
-          if (target.classList.contains('btn-resolve-inline')) {
-            const commentId = target.dataset.commentId;
-            const isResolved = target.dataset.resolved === 'true';
-
-            try {
-              const formData = new FormData();
-              formData.append('resolved', isResolved ? 'false' : 'true');
-
-              const response = await fetch('/p/' + project + '/wiki/' + slug + '/inline/' + commentId + '/resolve', {
-                method: 'POST',
-                body: formData,
-              });
-
-              const result = await response.json();
-              if (result.success) {
-                // Update button state
-                target.dataset.resolved = isResolved ? 'false' : 'true';
-                target.textContent = isResolved ? 'Resolve' : 'Unresolve';
-
-                // Update the highlight style
-                const highlight = document.querySelector('.inline-comment[data-comment-id="' + commentId + '"]');
-                if (highlight) {
-                  highlight.classList.toggle('inline-comment-resolved', !isResolved);
-                }
-
-                // Update local data
-                const comment = inlineComments.find(c => c.id === commentId);
-                if (comment) {
-                  comment.resolved = !isResolved;
-                }
-              } else {
-                alert('Error: ' + result.error);
-              }
-            } catch (error) {
-              alert('Error: ' + error.message);
             }
           }
         });
