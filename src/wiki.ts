@@ -124,18 +124,48 @@ export async function listPages(): Promise<PageInfo[]> {
 
 // Convert [[WikiLinks]] to HTML links
 // Supports [[Topic]] and [[Topic|Display Text]] syntax
-function processWikiLinks(html: string): string {
-  return html.replace(/\[\[([^\]]+)\]\]/g, (_, linkContent: string) => {
-    const [target, displayText] = linkContent.split('|');
-    const slug = slugify(target);
-    const text = displayText ?? target;
-    return `<a href="/wiki/${slug}" class="wiki-link">${text}</a>`;
+// Links to non-existent pages get a "wiki-link-missing" class (red links)
+async function processWikiLinks(html: string): Promise<string> {
+  // Find all wiki links and their positions
+  const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
+  const matches: { match: string; linkContent: string; index: number }[] = [];
+  let match;
+  while ((match = wikiLinkRegex.exec(html)) !== null) {
+    matches.push({ match: match[0], linkContent: match[1], index: match.index });
+  }
+
+  if (matches.length === 0) return html;
+
+  // Check which pages exist (in parallel)
+  const slugs = matches.map(m => {
+    const [target] = m.linkContent.split('|');
+    return slugify(target);
   });
+  const existsResults = await Promise.all(slugs.map(slug => pageExists(slug)));
+
+  // Build result string by replacing matches
+  let result = '';
+  let lastIndex = 0;
+  for (let i = 0; i < matches.length; i++) {
+    const { match, linkContent, index } = matches[i];
+    const [target, displayText] = linkContent.split('|');
+    const slug = slugs[i];
+    const text = displayText ?? target;
+    const exists = existsResults[i];
+    const className = exists ? 'wiki-link' : 'wiki-link wiki-link-missing';
+
+    result += html.slice(lastIndex, index);
+    result += `<a href="/wiki/${slug}" class="${className}">${text}</a>`;
+    lastIndex = index + match.length;
+  }
+  result += html.slice(lastIndex);
+
+  return result;
 }
 
 export async function renderMarkdown(content: string): Promise<string> {
   const html = await marked(content);
-  return processWikiLinks(html);
+  return await processWikiLinks(html);
 }
 
 export async function generatePage(

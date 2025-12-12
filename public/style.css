@@ -571,6 +571,15 @@ body[data-sidebar-open="false"] main {
   border-bottom-color: var(--text-link);
 }
 
+/* Missing page links (red links) */
+.wiki-link-missing {
+  color: var(--accent-error);
+}
+
+.wiki-link-missing:hover {
+  border-bottom-color: var(--accent-error);
+}
+
 /* ===== CHAT SECTION ===== */
 .chat-section {
   background: var(--bg-sidebar);
