@@ -5,6 +5,11 @@ import { streamSSE } from 'hono/streaming';
 import { config, buildCommentPrompt, buildInlineEditPrompt } from './config.js';
 import {
   listPages,
+  listProjects,
+  projectExists,
+  createProject,
+  migrateToProjects,
+  DEFAULT_PROJECT,
   readPage,
   writePage,
   pageExists,
@@ -36,17 +41,72 @@ import { wikiPage, errorPage, generatePageView } from './views/page.js';
 
 const app = new Hono();
 
+// Run migration on startup
+migrateToProjects().catch(console.error);
+
 // Serve static files
 app.use('/style.css', serveStatic({ root: './public' }));
 
-// Home page
-app.get('/', async (c) => {
-  const pages = await listPages();
-  return c.html(homePage(pages));
+// ============================================
+// Project Management Routes
+// ============================================
+
+// List all projects
+app.get('/api/projects', async (c) => {
+  const projects = await listProjects();
+  return c.json({ projects });
 });
 
-// Generate page from topic (streaming SSE)
-app.post('/generate', async (c) => {
+// Create a new project
+app.post('/api/projects', async (c) => {
+  const body = await c.req.parseBody();
+  const name = body['name'];
+
+  if (!name || typeof name !== 'string') {
+    return c.json({ error: 'Please provide a project name' }, 400);
+  }
+
+  const result = await createProject(name.trim());
+  if (!result.success) {
+    return c.json({ error: result.error }, 400);
+  }
+
+  const sanitizedName = slugify(name.trim());
+  return c.json({ success: true, project: sanitizedName });
+});
+
+// ============================================
+// Root Routes (redirect to default project)
+// ============================================
+
+// Home page - redirect to default project
+app.get('/', async (c) => {
+  return c.redirect(`/p/${DEFAULT_PROJECT}`);
+});
+
+// ============================================
+// Project-Scoped Routes
+// ============================================
+
+// Project home page
+app.get('/p/:project', async (c) => {
+  const project = c.req.param('project');
+
+  // Validate project exists (or it's the default project)
+  if (project !== DEFAULT_PROJECT && !(await projectExists(project))) {
+    return c.html(errorPage('Project not found'), 404);
+  }
+
+  const [pages, projects] = await Promise.all([
+    listPages(project),
+    listProjects(),
+  ]);
+  return c.html(homePage(pages, project, projects));
+});
+
+// Generate page from topic (streaming SSE) - project scoped
+app.post('/p/:project/generate', async (c) => {
+  const project = c.req.param('project');
   const body = await c.req.parseBody();
   const topic = body['topic'];
 
@@ -66,7 +126,7 @@ app.post('/generate', async (c) => {
       });
 
       // Stream content chunks
-      const generator = generatePageStreaming(topicStr);
+      const generator = generatePageStreaming(topicStr, undefined, project);
       let result = await generator.next();
 
       while (!result.done) {
@@ -80,7 +140,7 @@ app.post('/generate', async (c) => {
       // Send complete event
       await stream.writeSSE({
         event: 'complete',
-        data: JSON.stringify({ slug, url: `/wiki/${slug}` }),
+        data: JSON.stringify({ slug, url: `/p/${project}/wiki/${slug}` }),
       });
     } catch (error) {
       console.error('Generation error:', error);
@@ -94,38 +154,42 @@ app.post('/generate', async (c) => {
 });
 
 // Streaming generation page (for wiki links to non-existent pages)
-app.get('/generate-page/:topic', async (c) => {
+app.get('/p/:project/generate-page/:topic', async (c) => {
+  const project = c.req.param('project');
   const topic = decodeURIComponent(c.req.param('topic'));
-  return c.html(generatePageView(topic));
+  return c.html(generatePageView(topic, project));
 });
 
 // View wiki page
-app.get('/wiki/:slug', async (c) => {
+app.get('/p/:project/wiki/:slug', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
-  const exists = await pageExists(slug);
+  const exists = await pageExists(slug, project);
 
   if (!exists) {
     // Redirect to streaming generation page
     const topic = unslugify(slug);
-    return c.redirect(`/generate-page/${encodeURIComponent(topic)}`);
+    return c.redirect(`/p/${project}/generate-page/${encodeURIComponent(topic)}`);
   }
 
-  const content = await readPage(slug);
+  const content = await readPage(slug, project);
   if (!content) {
     return c.html(errorPage('Page not found'), 404);
   }
 
-  const [htmlContent, pages, pageData] = await Promise.all([
-    renderMarkdown(content),
-    listPages(),
-    readPageData(slug),
+  const [htmlContent, pages, projects, pageData] = await Promise.all([
+    renderMarkdown(content, project),
+    listPages(project),
+    listProjects(),
+    readPageData(slug, project),
   ]);
   const title = unslugify(slug);
-  return c.html(wikiPage(slug, title, htmlContent, pageData, pages));
+  return c.html(wikiPage(slug, title, htmlContent, pageData, pages, project, projects));
 });
 
 // Chat/edit page
-app.post('/wiki/:slug/chat', async (c) => {
+app.post('/p/:project/wiki/:slug/chat', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
 
   try {
@@ -138,21 +202,21 @@ app.post('/wiki/:slug/chat', async (c) => {
 
     const topic = unslugify(slug);
     const userMessage = message.trim();
-    const { content } = await generatePage(topic, userMessage);
+    const { content } = await generatePage(topic, userMessage, project);
 
     // Add version for the edit
-    await addVersion(slug, content, userMessage, 'edit');
+    await addVersion(slug, content, userMessage, 'edit', project);
 
     // Append to edit history using new PageData structure (for backward compat)
-    const pageData = await readPageData(slug);
+    const pageData = await readPageData(slug, project);
     const timestamp = new Date().toISOString();
     pageData.editHistory.push(
       { role: 'user', content: userMessage, timestamp },
       { role: 'assistant', content: 'Page updated', timestamp }
     );
-    await writePageData(slug, pageData);
+    await writePageData(slug, pageData, project);
 
-    return c.redirect(`/wiki/${slug}`);
+    return c.redirect(`/p/${project}/wiki/${slug}`);
   } catch (error) {
     console.error('Chat error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -165,7 +229,8 @@ app.post('/wiki/:slug/chat', async (c) => {
 // ============================================
 
 // Add page-level comment (with AI auto-response)
-app.post('/wiki/:slug/comment', async (c) => {
+app.post('/p/:project/wiki/:slug/comment', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
 
   try {
@@ -177,7 +242,7 @@ app.post('/wiki/:slug/comment', async (c) => {
     }
 
     // Get page content for AI context
-    const pageContent = await readPage(slug);
+    const pageContent = await readPage(slug, project);
     if (!pageContent) {
       return c.json({ error: 'Page not found' }, 404);
     }
@@ -187,7 +252,7 @@ app.post('/wiki/:slug/comment', async (c) => {
     const aiResponse = await invokeClaude(prompt);
 
     // Save comment with AI response
-    const thread = await addPageComment(slug, message.trim(), aiResponse);
+    const thread = await addPageComment(slug, message.trim(), aiResponse, project);
 
     return c.json({ success: true, thread });
   } catch (error) {
@@ -198,7 +263,8 @@ app.post('/wiki/:slug/comment', async (c) => {
 });
 
 // Reply to page-level comment
-app.post('/wiki/:slug/comment/:id/reply', async (c) => {
+app.post('/p/:project/wiki/:slug/comment/:id/reply', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
   const threadId = c.req.param('id');
 
@@ -211,13 +277,13 @@ app.post('/wiki/:slug/comment/:id/reply', async (c) => {
     }
 
     // Add user reply
-    let thread = await addReplyToPageComment(slug, threadId, message.trim(), 'user');
+    let thread = await addReplyToPageComment(slug, threadId, message.trim(), 'user', project);
     if (!thread) {
       return c.json({ error: 'Thread not found' }, 404);
     }
 
     // Generate AI response for follow-up
-    const pageContent = await readPage(slug);
+    const pageContent = await readPage(slug, project);
     if (pageContent) {
       // Pass conversation history (excluding the message we just added, which is the current question)
       const conversationHistory = thread.messages.slice(0, -1).map(msg => ({
@@ -226,7 +292,7 @@ app.post('/wiki/:slug/comment/:id/reply', async (c) => {
       }));
       const prompt = buildCommentPrompt(pageContent, null, message.trim(), conversationHistory);
       const aiResponse = await invokeClaude(prompt);
-      thread = await addReplyToPageComment(slug, threadId, aiResponse, 'assistant');
+      thread = await addReplyToPageComment(slug, threadId, aiResponse, 'assistant', project);
     }
 
     return c.json({ success: true, thread });
@@ -238,7 +304,8 @@ app.post('/wiki/:slug/comment/:id/reply', async (c) => {
 });
 
 // Resolve/unresolve page comment
-app.post('/wiki/:slug/comment/:id/resolve', async (c) => {
+app.post('/p/:project/wiki/:slug/comment/:id/resolve', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
   const threadId = c.req.param('id');
 
@@ -246,7 +313,7 @@ app.post('/wiki/:slug/comment/:id/resolve', async (c) => {
     const body = await c.req.parseBody();
     const resolved = body['resolved'] !== 'false';
 
-    const success = await resolvePageComment(slug, threadId, resolved);
+    const success = await resolvePageComment(slug, threadId, resolved, project);
     if (!success) {
       return c.json({ error: 'Thread not found' }, 404);
     }
@@ -264,7 +331,8 @@ app.post('/wiki/:slug/comment/:id/resolve', async (c) => {
 // ============================================
 
 // Add inline comment (with AI auto-response)
-app.post('/wiki/:slug/inline', async (c) => {
+app.post('/p/:project/wiki/:slug/inline', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
 
   try {
@@ -288,7 +356,7 @@ app.post('/wiki/:slug/inline', async (c) => {
     };
 
     // Get page content for AI context
-    const pageContent = await readPage(slug);
+    const pageContent = await readPage(slug, project);
     if (!pageContent) {
       return c.json({ error: 'Page not found' }, 404);
     }
@@ -298,7 +366,7 @@ app.post('/wiki/:slug/inline', async (c) => {
     const aiResponse = await invokeClaude(prompt);
 
     // Save inline comment with AI response
-    const thread = await addInlineComment(slug, anchor, message.trim(), aiResponse);
+    const thread = await addInlineComment(slug, anchor, message.trim(), aiResponse, project);
 
     return c.json({ success: true, thread });
   } catch (error) {
@@ -309,7 +377,8 @@ app.post('/wiki/:slug/inline', async (c) => {
 });
 
 // Reply to inline comment
-app.post('/wiki/:slug/inline/:id/reply', async (c) => {
+app.post('/p/:project/wiki/:slug/inline/:id/reply', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
   const threadId = c.req.param('id');
 
@@ -322,13 +391,13 @@ app.post('/wiki/:slug/inline/:id/reply', async (c) => {
     }
 
     // Add user reply
-    let thread = await addReplyToInlineComment(slug, threadId, message.trim(), 'user');
+    let thread = await addReplyToInlineComment(slug, threadId, message.trim(), 'user', project);
     if (!thread) {
       return c.json({ error: 'Thread not found' }, 404);
     }
 
     // Generate AI response for follow-up
-    const pageContent = await readPage(slug);
+    const pageContent = await readPage(slug, project);
     if (pageContent) {
       const selectedText = thread.anchor.text;
       // Pass conversation history (excluding the message we just added, which is the current question)
@@ -338,7 +407,7 @@ app.post('/wiki/:slug/inline/:id/reply', async (c) => {
       }));
       const prompt = buildCommentPrompt(pageContent, selectedText, message.trim(), conversationHistory);
       const aiResponse = await invokeClaude(prompt);
-      thread = await addReplyToInlineComment(slug, threadId, aiResponse, 'assistant');
+      thread = await addReplyToInlineComment(slug, threadId, aiResponse, 'assistant', project);
     }
 
     return c.json({ success: true, thread });
@@ -350,7 +419,8 @@ app.post('/wiki/:slug/inline/:id/reply', async (c) => {
 });
 
 // Resolve/unresolve inline comment
-app.post('/wiki/:slug/inline/:id/resolve', async (c) => {
+app.post('/p/:project/wiki/:slug/inline/:id/resolve', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
   const threadId = c.req.param('id');
 
@@ -358,7 +428,7 @@ app.post('/wiki/:slug/inline/:id/resolve', async (c) => {
     const body = await c.req.parseBody();
     const resolved = body['resolved'] !== 'false';
 
-    const success = await resolveInlineComment(slug, threadId, resolved);
+    const success = await resolveInlineComment(slug, threadId, resolved, project);
     if (!success) {
       return c.json({ error: 'Thread not found' }, 404);
     }
@@ -375,7 +445,8 @@ app.post('/wiki/:slug/inline/:id/resolve', async (c) => {
 // Inline Edit Route (SSE streaming)
 // ============================================
 
-app.post('/wiki/:slug/inline-edit', async (c) => {
+app.post('/p/:project/wiki/:slug/inline-edit', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
 
   const body = await c.req.parseBody();
@@ -389,7 +460,7 @@ app.post('/wiki/:slug/inline-edit', async (c) => {
     return c.json({ error: 'Please provide selected text' }, 400);
   }
 
-  const pageContent = await readPage(slug);
+  const pageContent = await readPage(slug, project);
   if (!pageContent) {
     return c.json({ error: 'Page not found' }, 404);
   }
@@ -408,10 +479,10 @@ app.post('/wiki/:slug/inline-edit', async (c) => {
       }
 
       // The LLM returns the full updated page content
-      await writePage(slug, updatedContent);
+      await writePage(slug, updatedContent, project);
 
       // Add version for the edit
-      await addVersion(slug, updatedContent, instruction.trim(), 'edit');
+      await addVersion(slug, updatedContent, instruction.trim(), 'edit', project);
 
       await stream.writeSSE({
         event: 'complete',
@@ -434,24 +505,26 @@ app.post('/wiki/:slug/inline-edit', async (c) => {
 
 // Get version history for a page
 // ?all=true returns all versions including superseded ones
-app.get('/wiki/:slug/history', async (c) => {
+app.get('/p/:project/wiki/:slug/history', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
   const showAll = c.req.query('all') === 'true';
-  const exists = await pageExists(slug);
+  const exists = await pageExists(slug, project);
 
   if (!exists) {
     return c.json({ error: 'Page not found' }, 404);
   }
 
   const versions = showAll
-    ? await getAllVersionHistory(slug)
-    : await getVersionHistory(slug);
-  const currentVersion = await getCurrentVersion(slug);
+    ? await getAllVersionHistory(slug, project)
+    : await getVersionHistory(slug, project);
+  const currentVersion = await getCurrentVersion(slug, project);
   return c.json({ versions, currentVersion });
 });
 
 // Get a specific version for preview
-app.get('/wiki/:slug/version/:version', async (c) => {
+app.get('/p/:project/wiki/:slug/version/:version', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
   const versionNum = parseInt(c.req.param('version'));
 
@@ -459,18 +532,19 @@ app.get('/wiki/:slug/version/:version', async (c) => {
     return c.json({ error: 'Invalid version number' }, 400);
   }
 
-  const version = await getVersion(slug, versionNum);
+  const version = await getVersion(slug, versionNum, project);
   if (!version) {
     return c.json({ error: 'Version not found' }, 404);
   }
 
   // Render to HTML for preview
-  const html = await renderMarkdown(version.content);
+  const html = await renderMarkdown(version.content, project);
   return c.json({ version, html });
 });
 
 // Revert to a specific version
-app.post('/wiki/:slug/revert', async (c) => {
+app.post('/p/:project/wiki/:slug/revert', async (c) => {
+  const project = c.req.param('project');
   const slug = c.req.param('slug');
   const body = await c.req.parseBody();
   const targetVersion = parseInt(body['version'] as string);
@@ -479,7 +553,7 @@ app.post('/wiki/:slug/revert', async (c) => {
     return c.json({ error: 'Invalid version number' }, 400);
   }
 
-  const result = await revertToVersion(slug, targetVersion);
+  const result = await revertToVersion(slug, targetVersion, project);
   if (!result) {
     return c.json({ error: 'Version not found' }, 404);
   }

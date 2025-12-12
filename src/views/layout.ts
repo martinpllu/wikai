@@ -5,6 +5,8 @@ export interface LayoutOptions {
   content: string;
   pages?: PageInfo[];
   currentSlug?: string;
+  project?: string;
+  projects?: string[];
 }
 
 export function layout(options: LayoutOptions): string;
@@ -19,8 +21,9 @@ export function layout(
       ? { title: titleOrOptions, content: contentArg! }
       : titleOrOptions;
 
-  const { title, content, pages = [], currentSlug = '' } = options;
+  const { title, content, pages = [], currentSlug = '', project = 'default', projects = ['default'] } = options;
   const pagesJson = JSON.stringify(pages);
+  const projectsJson = JSON.stringify(projects);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -34,14 +37,40 @@ export function layout(
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <aside class="sidebar" id="sidebar" data-pages='${pagesJson}' data-current-slug="${currentSlug}">
+  <aside class="sidebar" id="sidebar" data-pages='${pagesJson}' data-current-slug="${currentSlug}" data-project="${project}" data-projects='${projectsJson}'>
     <div class="sidebar-header">
-      <a href="/" class="logo">WikAI</a>
+      <a href="/p/${project}" class="logo">WikAI</a>
       <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
+    </div>
+
+    <div class="project-selector" id="project-selector">
+      <button class="project-current" id="project-current" aria-label="Switch project">
+        <span class="project-icon">📁</span>
+        <span class="project-name" id="project-name">${project}</span>
+        <svg class="project-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <div class="project-dropdown" id="project-dropdown">
+        <div class="project-list" id="project-list"></div>
+        <div class="project-create" id="project-create">
+          <button class="project-create-btn" id="project-create-btn">
+            <span class="create-icon">+</span>
+            <span>New Project</span>
+          </button>
+          <div class="project-create-form" id="project-create-form" style="display: none;">
+            <input type="text" id="project-create-input" placeholder="Project name..." autocomplete="off" />
+            <div class="project-create-actions">
+              <button type="button" id="project-create-cancel" class="btn-cancel">Cancel</button>
+              <button type="button" id="project-create-submit" class="btn-submit">Create</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="sidebar-search">
@@ -67,7 +96,7 @@ export function layout(
     </nav>
 
     <div class="sidebar-footer">
-      <a href="/" class="new-page-btn" id="new-page-btn">
+      <a href="/p/${project}" class="new-page-btn" id="new-page-btn">
         <span class="new-page-icon">+</span>
         <span>New Page</span>
         <kbd class="shortcut-hint" data-mac="⌘P" data-other="Ctrl+P"></kbd>
@@ -96,6 +125,10 @@ export function layout(
       searchQuery: '',
       pages: [],
       currentSlug: '',
+      currentProject: '',
+      projects: [],
+      projectDropdownOpen: false,
+      projectCreateMode: false,
     };
 
     // ===== ELEMENTS =====
@@ -107,6 +140,15 @@ export function layout(
     const pagesList = document.getElementById('pages-list');
     const favoritesList = document.getElementById('favorites-list');
     const favoritesSection = document.getElementById('favorites-section');
+    const projectSelector = document.getElementById('project-selector');
+    const projectCurrent = document.getElementById('project-current');
+    const projectDropdown = document.getElementById('project-dropdown');
+    const projectList = document.getElementById('project-list');
+    const projectCreateBtn = document.getElementById('project-create-btn');
+    const projectCreateForm = document.getElementById('project-create-form');
+    const projectCreateInput = document.getElementById('project-create-input');
+    const projectCreateCancel = document.getElementById('project-create-cancel');
+    const projectCreateSubmit = document.getElementById('project-create-submit');
 
     // ===== PLATFORM DETECTION =====
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -114,12 +156,15 @@ export function layout(
 
     // ===== INITIALIZATION =====
     function init() {
-      // Load pages from data attribute
+      // Load pages and projects from data attributes
       try {
         state.pages = JSON.parse(sidebar.dataset.pages || '[]');
         state.currentSlug = sidebar.dataset.currentSlug || '';
+        state.currentProject = sidebar.dataset.project || 'default';
+        state.projects = JSON.parse(sidebar.dataset.projects || '["default"]');
       } catch (e) {
         state.pages = [];
+        state.projects = ['default'];
       }
 
       // Clean up favorites (remove pages that no longer exist)
@@ -134,7 +179,9 @@ export function layout(
       applySidebarState();
       applySortState();
       render();
+      renderProjectList();
       bindEvents();
+      bindProjectEvents();
     }
 
     // ===== SHORTCUT HINTS =====
@@ -250,7 +297,7 @@ export function layout(
 
       return \`
         <li class="page-item\${isActive ? ' active' : ''}" data-slug="\${page.slug}">
-          <a href="/wiki/\${page.slug}">
+          <a href="/p/\${state.currentProject}/wiki/\${page.slug}">
             <span class="page-icon">📄</span>
             <span class="page-title">\${page.title}</span>
           </a>
@@ -291,6 +338,129 @@ export function layout(
           e.stopPropagation();
           toggleFavorite(btn.dataset.slug, btn);
         };
+      });
+    }
+
+    // ===== PROJECT SELECTOR =====
+    function renderProjectList() {
+      if (!projectList) return;
+
+      projectList.innerHTML = state.projects.map(project => \`
+        <button class="project-item\${project === state.currentProject ? ' active' : ''}" data-project="\${project}">
+          <span class="project-icon">📁</span>
+          <span class="project-name">\${project}</span>
+          \${project === state.currentProject ? '<span class="check-icon">✓</span>' : ''}
+        </button>
+      \`).join('');
+
+      // Bind click events
+      projectList.querySelectorAll('.project-item').forEach(btn => {
+        btn.onclick = () => {
+          const project = btn.dataset.project;
+          if (project !== state.currentProject) {
+            window.location.href = '/p/' + project;
+          } else {
+            closeProjectDropdown();
+          }
+        };
+      });
+    }
+
+    function toggleProjectDropdown() {
+      state.projectDropdownOpen = !state.projectDropdownOpen;
+      projectDropdown.classList.toggle('open', state.projectDropdownOpen);
+      projectSelector.classList.toggle('open', state.projectDropdownOpen);
+      if (!state.projectDropdownOpen) {
+        hideProjectCreateForm();
+      }
+    }
+
+    function closeProjectDropdown() {
+      state.projectDropdownOpen = false;
+      projectDropdown.classList.remove('open');
+      projectSelector.classList.remove('open');
+      hideProjectCreateForm();
+    }
+
+    function showProjectCreateForm() {
+      state.projectCreateMode = true;
+      projectCreateBtn.style.display = 'none';
+      projectCreateForm.style.display = 'block';
+      projectCreateInput.value = '';
+      projectCreateInput.focus();
+    }
+
+    function hideProjectCreateForm() {
+      state.projectCreateMode = false;
+      projectCreateBtn.style.display = 'flex';
+      projectCreateForm.style.display = 'none';
+      projectCreateInput.value = '';
+    }
+
+    async function createProject() {
+      const name = projectCreateInput.value.trim();
+      if (!name) return;
+
+      try {
+        const response = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ name }),
+        });
+
+        const data = await response.json();
+        if (data.error) {
+          alert('Error: ' + data.error);
+          return;
+        }
+
+        // Navigate to the new project
+        window.location.href = '/p/' + data.project;
+      } catch (error) {
+        alert('Failed to create project: ' + error.message);
+      }
+    }
+
+    function bindProjectEvents() {
+      // Toggle dropdown
+      projectCurrent?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleProjectDropdown();
+      });
+
+      // Create button
+      projectCreateBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showProjectCreateForm();
+      });
+
+      // Cancel create
+      projectCreateCancel?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideProjectCreateForm();
+      });
+
+      // Submit create
+      projectCreateSubmit?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        createProject();
+      });
+
+      // Enter to submit create form
+      projectCreateInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          createProject();
+        } else if (e.key === 'Escape') {
+          hideProjectCreateForm();
+        }
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (state.projectDropdownOpen && !projectSelector.contains(e.target)) {
+          closeProjectDropdown();
+        }
       });
     }
 
@@ -349,7 +519,7 @@ export function layout(
       // Cmd/Ctrl + P - New page
       if (modKey && e.key === 'p') {
         e.preventDefault();
-        window.location.href = '/';
+        window.location.href = '/p/' + state.currentProject;
       }
 
       // Escape - Clear search or close sidebar

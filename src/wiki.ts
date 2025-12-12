@@ -20,13 +20,133 @@ export function unslugify(slug: string): string {
     .join(' ');
 }
 
-export function getPagePath(slug: string): string {
-  return path.join(config.dataDir, `${slug}.md`);
+// ============================================
+// Project Management
+// ============================================
+
+const DEFAULT_PROJECT = 'default';
+
+export function getProjectDir(project: string): string {
+  return path.join(config.dataDir, project);
 }
 
-export function getChatHistoryPath(slug: string): string {
-  return path.join(config.dataDir, `${slug}.json`);
+export function getPagePath(slug: string, project: string = DEFAULT_PROJECT): string {
+  return path.join(getProjectDir(project), `${slug}.md`);
 }
+
+export function getChatHistoryPath(slug: string, project: string = DEFAULT_PROJECT): string {
+  return path.join(getProjectDir(project), `${slug}.json`);
+}
+
+export async function listProjects(): Promise<string[]> {
+  try {
+    const entries = await fs.readdir(config.dataDir, { withFileTypes: true });
+    const projects = entries
+      .filter(entry => entry.isDirectory())
+      .map(entry => entry.name)
+      .sort((a, b) => {
+        // Always put 'default' first
+        if (a === DEFAULT_PROJECT) return -1;
+        if (b === DEFAULT_PROJECT) return 1;
+        return a.localeCompare(b);
+      });
+
+    // Ensure default project always exists in the list
+    if (!projects.includes(DEFAULT_PROJECT)) {
+      projects.unshift(DEFAULT_PROJECT);
+    }
+
+    return projects;
+  } catch {
+    return [DEFAULT_PROJECT];
+  }
+}
+
+export async function projectExists(project: string): Promise<boolean> {
+  try {
+    const stat = await fs.stat(getProjectDir(project));
+    return stat.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+export async function createProject(name: string): Promise<{ success: boolean; error?: string }> {
+  // Validate project name
+  const sanitized = slugify(name);
+  if (!sanitized) {
+    return { success: false, error: 'Invalid project name' };
+  }
+
+  // Check if project already exists
+  if (await projectExists(sanitized)) {
+    return { success: false, error: 'Project already exists' };
+  }
+
+  // Create project directory
+  try {
+    await fs.mkdir(getProjectDir(sanitized), { recursive: true });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: 'Failed to create project directory' };
+  }
+}
+
+export async function ensureDefaultProject(): Promise<void> {
+  const defaultDir = getProjectDir(DEFAULT_PROJECT);
+  try {
+    await fs.access(defaultDir);
+  } catch {
+    await fs.mkdir(defaultDir, { recursive: true });
+  }
+}
+
+/**
+ * Migrate existing pages from the root data directory to the default project subdirectory.
+ * This is a one-time migration that moves all .md and .json files.
+ */
+export async function migrateToProjects(): Promise<void> {
+  const dataDir = config.dataDir;
+  const defaultDir = getProjectDir(DEFAULT_PROJECT);
+
+  // Check if default project already exists and has content
+  try {
+    const defaultFiles = await fs.readdir(defaultDir);
+    if (defaultFiles.some(f => f.endsWith('.md'))) {
+      // Already migrated
+      return;
+    }
+  } catch {
+    // Directory doesn't exist, will be created
+  }
+
+  // Ensure the default project directory exists
+  await fs.mkdir(defaultDir, { recursive: true });
+
+  // Read all files from the root data directory
+  let files: string[];
+  try {
+    files = await fs.readdir(dataDir);
+  } catch {
+    return; // No data directory yet
+  }
+
+  // Move all .md and .json files to the default project
+  for (const file of files) {
+    if (file.endsWith('.md') || file.endsWith('.json')) {
+      const srcPath = path.join(dataDir, file);
+      const destPath = path.join(defaultDir, file);
+
+      // Check if source is a file (not a directory)
+      const stat = await fs.stat(srcPath);
+      if (stat.isFile()) {
+        await fs.rename(srcPath, destPath);
+      }
+    }
+  }
+}
+
+export { DEFAULT_PROJECT };
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -34,9 +154,9 @@ export interface ChatMessage {
   timestamp: string;
 }
 
-export async function readChatHistory(slug: string): Promise<ChatMessage[]> {
+export async function readChatHistory(slug: string, project: string = DEFAULT_PROJECT): Promise<ChatMessage[]> {
   try {
-    const data = await fs.readFile(getChatHistoryPath(slug), 'utf-8');
+    const data = await fs.readFile(getChatHistoryPath(slug, project), 'utf-8');
     return JSON.parse(data);
   } catch {
     return [];
@@ -46,9 +166,10 @@ export async function readChatHistory(slug: string): Promise<ChatMessage[]> {
 export async function appendChatHistory(
   slug: string,
   userMessage: string,
-  assistantSummary?: string
+  assistantSummary?: string,
+  project: string = DEFAULT_PROJECT
 ): Promise<void> {
-  const history = await readChatHistory(slug);
+  const history = await readChatHistory(slug, project);
   const timestamp = new Date().toISOString();
 
   history.push({
@@ -65,30 +186,30 @@ export async function appendChatHistory(
     });
   }
 
-  await fs.mkdir(config.dataDir, { recursive: true });
-  await fs.writeFile(getChatHistoryPath(slug), JSON.stringify(history, null, 2));
+  await fs.mkdir(getProjectDir(project), { recursive: true });
+  await fs.writeFile(getChatHistoryPath(slug, project), JSON.stringify(history, null, 2));
 }
 
-export async function pageExists(slug: string): Promise<boolean> {
+export async function pageExists(slug: string, project: string = DEFAULT_PROJECT): Promise<boolean> {
   try {
-    await fs.access(getPagePath(slug));
+    await fs.access(getPagePath(slug, project));
     return true;
   } catch {
     return false;
   }
 }
 
-export async function readPage(slug: string): Promise<string | null> {
+export async function readPage(slug: string, project: string = DEFAULT_PROJECT): Promise<string | null> {
   try {
-    return await fs.readFile(getPagePath(slug), 'utf-8');
+    return await fs.readFile(getPagePath(slug, project), 'utf-8');
   } catch {
     return null;
   }
 }
 
-export async function writePage(slug: string, content: string): Promise<void> {
-  await fs.mkdir(config.dataDir, { recursive: true });
-  await fs.writeFile(getPagePath(slug), content, 'utf-8');
+export async function writePage(slug: string, content: string, project: string = DEFAULT_PROJECT): Promise<void> {
+  await fs.mkdir(getProjectDir(project), { recursive: true });
+  await fs.writeFile(getPagePath(slug, project), content, 'utf-8');
 }
 
 export interface PageInfo {
@@ -97,15 +218,17 @@ export interface PageInfo {
   modifiedAt: number;
 }
 
-export async function listPages(): Promise<PageInfo[]> {
+export async function listPages(project: string = DEFAULT_PROJECT): Promise<PageInfo[]> {
   try {
-    const files = await fs.readdir(config.dataDir);
+    const projectDir = getProjectDir(project);
+    await fs.mkdir(projectDir, { recursive: true });
+    const files = await fs.readdir(projectDir);
     const mdFiles = files.filter(f => f.endsWith('.md'));
 
     const pages = await Promise.all(
       mdFiles.map(async (f) => {
         const slug = f.replace('.md', '');
-        const filePath = path.join(config.dataDir, f);
+        const filePath = path.join(projectDir, f);
         const stats = await fs.stat(filePath);
         return {
           slug,
@@ -125,7 +248,7 @@ export async function listPages(): Promise<PageInfo[]> {
 // Convert [[WikiLinks]] to HTML links
 // Supports [[Topic]] and [[Topic|Display Text]] syntax
 // Links to non-existent pages get a "wiki-link-missing" class (red links)
-async function processWikiLinks(html: string): Promise<string> {
+async function processWikiLinks(html: string, project: string = DEFAULT_PROJECT): Promise<string> {
   // Find all wiki links and their positions
   const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
   const matches: { match: string; linkContent: string; index: number }[] = [];
@@ -141,7 +264,7 @@ async function processWikiLinks(html: string): Promise<string> {
     const [target] = m.linkContent.split('|');
     return slugify(target);
   });
-  const existsResults = await Promise.all(slugs.map(slug => pageExists(slug)));
+  const existsResults = await Promise.all(slugs.map(slug => pageExists(slug, project)));
 
   // Build result string by replacing matches
   let result = '';
@@ -155,7 +278,7 @@ async function processWikiLinks(html: string): Promise<string> {
     const className = exists ? 'wiki-link' : 'wiki-link wiki-link-missing';
 
     result += html.slice(lastIndex, index);
-    result += `<a href="/wiki/${slug}" class="${className}">${text}</a>`;
+    result += `<a href="/p/${project}/wiki/${slug}" class="${className}">${text}</a>`;
     lastIndex = index + match.length;
   }
   result += html.slice(lastIndex);
@@ -163,22 +286,23 @@ async function processWikiLinks(html: string): Promise<string> {
   return result;
 }
 
-export async function renderMarkdown(content: string): Promise<string> {
+export async function renderMarkdown(content: string, project: string = DEFAULT_PROJECT): Promise<string> {
   const html = await marked(content);
-  return await processWikiLinks(html);
+  return await processWikiLinks(html, project);
 }
 
 export async function generatePage(
   topic: string,
-  userMessage?: string
+  userMessage?: string,
+  project: string = DEFAULT_PROJECT
 ): Promise<{ slug: string; content: string }> {
   const slug = slugify(topic);
-  const existingContent = await readPage(slug);
+  const existingContent = await readPage(slug, project);
 
   const prompt = buildPrompt(topic, existingContent ?? undefined, userMessage);
   const markdownContent = await invokeClaude(prompt);
 
-  await writePage(slug, markdownContent);
+  await writePage(slug, markdownContent, project);
 
   return { slug, content: markdownContent };
 }
@@ -188,10 +312,11 @@ export async function generatePage(
  */
 export async function* generatePageStreaming(
   topic: string,
-  userMessage?: string
+  userMessage?: string,
+  project: string = DEFAULT_PROJECT
 ): AsyncGenerator<string, { slug: string; content: string }> {
   const slug = slugify(topic);
-  const existingContent = await readPage(slug);
+  const existingContent = await readPage(slug, project);
 
   const prompt = buildPrompt(topic, existingContent ?? undefined, userMessage);
 
@@ -201,7 +326,7 @@ export async function* generatePageStreaming(
     yield chunk;
   }
 
-  await writePage(slug, fullContent);
+  await writePage(slug, fullContent, project);
 
   return { slug, content: fullContent };
 }
@@ -264,9 +389,9 @@ function generateId(): string {
 // Page Data CRUD
 // ============================================
 
-export async function readPageData(slug: string): Promise<PageData> {
+export async function readPageData(slug: string, project: string = DEFAULT_PROJECT): Promise<PageData> {
   try {
-    const data = await fs.readFile(getChatHistoryPath(slug), 'utf-8');
+    const data = await fs.readFile(getChatHistoryPath(slug, project), 'utf-8');
     const parsed = JSON.parse(data);
 
     // Migration: if old format (flat array), convert to new format
@@ -288,9 +413,9 @@ export async function readPageData(slug: string): Promise<PageData> {
   }
 }
 
-export async function writePageData(slug: string, data: PageData): Promise<void> {
-  await fs.mkdir(config.dataDir, { recursive: true });
-  await fs.writeFile(getChatHistoryPath(slug), JSON.stringify(data, null, 2));
+export async function writePageData(slug: string, data: PageData, project: string = DEFAULT_PROJECT): Promise<void> {
+  await fs.mkdir(getProjectDir(project), { recursive: true });
+  await fs.writeFile(getChatHistoryPath(slug, project), JSON.stringify(data, null, 2));
 }
 
 // ============================================
@@ -301,13 +426,13 @@ export async function writePageData(slug: string, data: PageData): Promise<void>
  * Ensures versions array is initialized. Creates v1 from current .md content if missing.
  * Mutates pageData in place.
  */
-async function ensureVersionsInitialized(pageData: PageData, slug: string): Promise<void> {
+async function ensureVersionsInitialized(pageData: PageData, slug: string, project: string = DEFAULT_PROJECT): Promise<void> {
   if (pageData.versions && pageData.versions.length > 0) {
     return;
   }
 
   // Migration: create initial version from current content
-  const content = await readPage(slug) || '';
+  const content = await readPage(slug, project) || '';
   pageData.versions = [{
     version: 1,
     content,
@@ -327,10 +452,11 @@ export async function addVersion(
   slug: string,
   content: string,
   editPrompt: string,
-  createdBy: 'generation' | 'edit' | 'revert' = 'edit'
+  createdBy: 'generation' | 'edit' | 'revert' = 'edit',
+  project: string = DEFAULT_PROJECT
 ): Promise<PageVersion> {
-  const pageData = await readPageData(slug);
-  await ensureVersionsInitialized(pageData, slug);
+  const pageData = await readPageData(slug, project);
+  await ensureVersionsInitialized(pageData, slug, project);
 
   const now = new Date().toISOString();
 
@@ -355,7 +481,7 @@ export async function addVersion(
   pageData.versions!.push(newVersion);
   pageData.currentVersion = nextVersion;
 
-  await writePageData(slug, pageData);
+  await writePageData(slug, pageData, project);
   return newVersion;
 }
 
@@ -365,10 +491,11 @@ export async function addVersion(
  */
 export async function revertToVersion(
   slug: string,
-  targetVersion: number
+  targetVersion: number,
+  project: string = DEFAULT_PROJECT
 ): Promise<PageVersion | null> {
-  const pageData = await readPageData(slug);
-  await ensureVersionsInitialized(pageData, slug);
+  const pageData = await readPageData(slug, project);
+  await ensureVersionsInitialized(pageData, slug, project);
 
   const targetVersionData = pageData.versions!.find(v => v.version === targetVersion);
   if (!targetVersionData) {
@@ -384,8 +511,8 @@ export async function revertToVersion(
   pageData.currentVersion = targetVersion;
 
   // Write the reverted content to .md file
-  await writePage(slug, targetVersionData.content);
-  await writePageData(slug, pageData);
+  await writePage(slug, targetVersionData.content, project);
+  await writePageData(slug, pageData, project);
 
   return targetVersionData;
 }
@@ -395,10 +522,10 @@ export async function revertToVersion(
  * Excludes superseded versions (those invalidated by edits after a revert).
  * Most recent first.
  */
-export async function getVersionHistory(slug: string): Promise<PageVersion[]> {
-  const pageData = await readPageData(slug);
-  await ensureVersionsInitialized(pageData, slug);
-  await writePageData(slug, pageData); // Persist migration if it happened
+export async function getVersionHistory(slug: string, project: string = DEFAULT_PROJECT): Promise<PageVersion[]> {
+  const pageData = await readPageData(slug, project);
+  await ensureVersionsInitialized(pageData, slug, project);
+  await writePageData(slug, pageData, project); // Persist migration if it happened
 
   // Only return non-superseded versions up to current pointer
   const visible = pageData.versions!.filter(
@@ -412,10 +539,10 @@ export async function getVersionHistory(slug: string): Promise<PageVersion[]> {
  * Returns ALL versions including superseded ones for "show all" UI.
  * Most recent first.
  */
-export async function getAllVersionHistory(slug: string): Promise<PageVersion[]> {
-  const pageData = await readPageData(slug);
-  await ensureVersionsInitialized(pageData, slug);
-  await writePageData(slug, pageData); // Persist migration if it happened
+export async function getAllVersionHistory(slug: string, project: string = DEFAULT_PROJECT): Promise<PageVersion[]> {
+  const pageData = await readPageData(slug, project);
+  await ensureVersionsInitialized(pageData, slug, project);
+  await writePageData(slug, pageData, project); // Persist migration if it happened
 
   // Return all versions, most recent first
   return pageData.versions!.slice().reverse();
@@ -426,10 +553,11 @@ export async function getAllVersionHistory(slug: string): Promise<PageVersion[]>
  */
 export async function getVersion(
   slug: string,
-  version: number
+  version: number,
+  project: string = DEFAULT_PROJECT
 ): Promise<PageVersion | null> {
-  const pageData = await readPageData(slug);
-  await ensureVersionsInitialized(pageData, slug);
+  const pageData = await readPageData(slug, project);
+  await ensureVersionsInitialized(pageData, slug, project);
 
   if (version < 1) {
     return null;
@@ -441,10 +569,10 @@ export async function getVersion(
 /**
  * Gets current version number for a page.
  */
-export async function getCurrentVersion(slug: string): Promise<number> {
-  const pageData = await readPageData(slug);
-  await ensureVersionsInitialized(pageData, slug);
-  await writePageData(slug, pageData); // Persist migration if it happened
+export async function getCurrentVersion(slug: string, project: string = DEFAULT_PROJECT): Promise<number> {
+  const pageData = await readPageData(slug, project);
+  await ensureVersionsInitialized(pageData, slug, project);
+  await writePageData(slug, pageData, project); // Persist migration if it happened
   return pageData.currentVersion!;
 }
 
@@ -455,9 +583,10 @@ export async function getCurrentVersion(slug: string): Promise<number> {
 export async function addPageComment(
   slug: string,
   content: string,
-  aiResponse?: string
+  aiResponse?: string,
+  project: string = DEFAULT_PROJECT
 ): Promise<CommentThread> {
-  const pageData = await readPageData(slug);
+  const pageData = await readPageData(slug, project);
   const timestamp = new Date().toISOString();
   const threadId = generateId();
 
@@ -487,7 +616,7 @@ export async function addPageComment(
   };
 
   pageData.pageComments.push(thread);
-  await writePageData(slug, pageData);
+  await writePageData(slug, pageData, project);
 
   return thread;
 }
@@ -496,9 +625,10 @@ export async function addReplyToPageComment(
   slug: string,
   threadId: string,
   content: string,
-  role: 'user' | 'assistant' = 'user'
+  role: 'user' | 'assistant' = 'user',
+  project: string = DEFAULT_PROJECT
 ): Promise<CommentThread | null> {
-  const pageData = await readPageData(slug);
+  const pageData = await readPageData(slug, project);
   const thread = pageData.pageComments.find(t => t.id === threadId);
 
   if (!thread) return null;
@@ -510,22 +640,23 @@ export async function addReplyToPageComment(
     timestamp: new Date().toISOString(),
   });
 
-  await writePageData(slug, pageData);
+  await writePageData(slug, pageData, project);
   return thread;
 }
 
 export async function resolvePageComment(
   slug: string,
   threadId: string,
-  resolved: boolean = true
+  resolved: boolean = true,
+  project: string = DEFAULT_PROJECT
 ): Promise<boolean> {
-  const pageData = await readPageData(slug);
+  const pageData = await readPageData(slug, project);
   const thread = pageData.pageComments.find(t => t.id === threadId);
 
   if (!thread) return false;
 
   thread.resolved = resolved;
-  await writePageData(slug, pageData);
+  await writePageData(slug, pageData, project);
   return true;
 }
 
@@ -537,9 +668,10 @@ export async function addInlineComment(
   slug: string,
   anchor: TextAnchor,
   content: string,
-  aiResponse?: string
+  aiResponse?: string,
+  project: string = DEFAULT_PROJECT
 ): Promise<InlineComment> {
-  const pageData = await readPageData(slug);
+  const pageData = await readPageData(slug, project);
   const timestamp = new Date().toISOString();
   const threadId = generateId();
 
@@ -570,7 +702,7 @@ export async function addInlineComment(
   };
 
   pageData.inlineComments.push(inlineComment);
-  await writePageData(slug, pageData);
+  await writePageData(slug, pageData, project);
 
   return inlineComment;
 }
@@ -579,9 +711,10 @@ export async function addReplyToInlineComment(
   slug: string,
   threadId: string,
   content: string,
-  role: 'user' | 'assistant' = 'user'
+  role: 'user' | 'assistant' = 'user',
+  project: string = DEFAULT_PROJECT
 ): Promise<InlineComment | null> {
-  const pageData = await readPageData(slug);
+  const pageData = await readPageData(slug, project);
   const thread = pageData.inlineComments.find(t => t.id === threadId);
 
   if (!thread) return null;
@@ -593,22 +726,23 @@ export async function addReplyToInlineComment(
     timestamp: new Date().toISOString(),
   });
 
-  await writePageData(slug, pageData);
+  await writePageData(slug, pageData, project);
   return thread;
 }
 
 export async function resolveInlineComment(
   slug: string,
   threadId: string,
-  resolved: boolean = true
+  resolved: boolean = true,
+  project: string = DEFAULT_PROJECT
 ): Promise<boolean> {
-  const pageData = await readPageData(slug);
+  const pageData = await readPageData(slug, project);
   const thread = pageData.inlineComments.find(t => t.id === threadId);
 
   if (!thread) return false;
 
   thread.resolved = resolved;
-  await writePageData(slug, pageData);
+  await writePageData(slug, pageData, project);
   return true;
 }
 

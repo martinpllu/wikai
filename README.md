@@ -23,6 +23,7 @@ A personal AI-powered wiki that generates knowledge pages on any topic using Cla
 
 ## Usage
 
+- **Projects**: Organize pages into separate projects (click the project dropdown in the sidebar)
 - **Generate a page**: Enter a topic and click "Generate Page"
 - **Navigate**: Click `[[WikiLinks]]` to generate related pages on-the-fly
 - **Comment**: Add page or inline comments (select text) with AI responses

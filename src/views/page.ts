@@ -102,7 +102,9 @@ export function wikiPage(
   title: string,
   htmlContent: string,
   pageData: PageData,
-  pages: PageInfo[] = []
+  pages: PageInfo[] = [],
+  project: string = 'default',
+  projects: string[] = ['default']
 ): string {
   // Inject inline comment highlights into the HTML
   const { html: contentWithHighlights, orphanedIds } = injectInlineHighlights(
@@ -117,6 +119,8 @@ export function wikiPage(
     title,
     pages,
     currentSlug: slug,
+    project,
+    projects,
     content: `
     <article class="wiki-page">
       <div class="wiki-content" id="wiki-content">
@@ -171,7 +175,7 @@ export function wikiPage(
 
       <!-- Edit Tab Content -->
       <div class="chat-tab-content hidden" id="tab-edit">
-        <form action="/wiki/${slug}/chat" method="POST" class="chat-form" id="edit-form">
+        <form action="/p/${project}/wiki/${slug}/chat" method="POST" class="chat-form" id="edit-form">
           <textarea
             name="message"
             id="edit-message"
@@ -217,6 +221,7 @@ export function wikiPage(
     <script>
       (function() {
         const slug = ${JSON.stringify(slug)};
+        const project = ${JSON.stringify(project)};
         const inlineComments = ${inlineCommentsJson};
 
         // ============================================
@@ -274,7 +279,7 @@ export function wikiPage(
             const formData = new FormData();
             formData.append('message', message);
 
-            const response = await fetch('/wiki/' + slug + '/comment', {
+            const response = await fetch('/p/' + project + '/wiki/' + slug + '/comment', {
               method: 'POST',
               body: formData,
             });
@@ -331,7 +336,7 @@ export function wikiPage(
               const formData = new FormData();
               formData.append('message', message);
 
-              const response = await fetch('/wiki/' + slug + '/' + endpoint + '/' + threadId + '/reply', {
+              const response = await fetch('/p/' + project + '/wiki/' + slug + '/' + endpoint + '/' + threadId + '/reply', {
                 method: 'POST',
                 body: formData,
               });
@@ -357,7 +362,7 @@ export function wikiPage(
               const formData = new FormData();
               formData.append('resolved', isResolved ? 'false' : 'true');
 
-              const response = await fetch('/wiki/' + slug + '/' + endpoint + '/' + threadId + '/resolve', {
+              const response = await fetch('/p/' + project + '/wiki/' + slug + '/' + endpoint + '/' + threadId + '/resolve', {
                 method: 'POST',
                 body: formData,
               });
@@ -596,7 +601,7 @@ export function wikiPage(
                   formData.append('prefix', context.prefix);
                   formData.append('suffix', context.suffix);
 
-                  const response = await fetch('/wiki/' + slug + '/inline', {
+                  const response = await fetch('/p/' + project + '/wiki/' + slug + '/inline', {
                     method: 'POST',
                     body: formData,
                   });
@@ -644,7 +649,7 @@ export function wikiPage(
                 formData.append('instruction', message);
                 formData.append('text', context.text);
 
-                const response = await fetch('/wiki/' + slug + '/inline-edit', {
+                const response = await fetch('/p/' + project + '/wiki/' + slug + '/inline-edit', {
                   method: 'POST',
                   body: formData,
                 });
@@ -780,7 +785,7 @@ export function wikiPage(
               const formData = new FormData();
               formData.append('message', message);
 
-              const response = await fetch('/wiki/' + slug + '/inline/' + commentId + '/reply', {
+              const response = await fetch('/p/' + project + '/wiki/' + slug + '/inline/' + commentId + '/reply', {
                 method: 'POST',
                 body: formData,
               });
@@ -827,7 +832,7 @@ export function wikiPage(
               const formData = new FormData();
               formData.append('resolved', isResolved ? 'false' : 'true');
 
-              const response = await fetch('/wiki/' + slug + '/inline/' + commentId + '/resolve', {
+              const response = await fetch('/p/' + project + '/wiki/' + slug + '/inline/' + commentId + '/resolve', {
                 method: 'POST',
                 body: formData,
               });
@@ -884,8 +889,8 @@ export function wikiPage(
         async function loadVersionHistory() {
           try {
             const url = showAllVersions
-              ? '/wiki/' + slug + '/history?all=true'
-              : '/wiki/' + slug + '/history';
+              ? '/p/' + project + '/wiki/' + slug + '/history?all=true'
+              : '/p/' + project + '/wiki/' + slug + '/history';
             const response = await fetch(url);
             const data = await response.json();
 
@@ -938,7 +943,7 @@ export function wikiPage(
 
         async function previewVersion(versionNum) {
           try {
-            const response = await fetch('/wiki/' + slug + '/version/' + versionNum);
+            const response = await fetch('/p/' + project + '/wiki/' + slug + '/version/' + versionNum);
             const data = await response.json();
 
             previewVersionNum.textContent = versionNum;
@@ -964,7 +969,7 @@ export function wikiPage(
             const formData = new FormData();
             formData.append('version', versionNum);
 
-            const response = await fetch('/wiki/' + slug + '/revert', {
+            const response = await fetch('/p/' + project + '/wiki/' + slug + '/revert', {
               method: 'POST',
               body: formData,
             });
@@ -1032,7 +1037,7 @@ export function errorPage(message: string): string {
   `);
 }
 
-export function generatePageView(topic: string): string {
+export function generatePageView(topic: string, project: string = 'default'): string {
   return layout(`Generating: ${topic}`, `
     <section class="streaming-section" id="streaming-section">
       <div class="streaming-header">
@@ -1046,6 +1051,7 @@ export function generatePageView(topic: string): string {
 
       const streamingContent = document.getElementById('streaming-content');
       const topic = ${JSON.stringify(topic)};
+      const project = ${JSON.stringify(project)};
 
       // Set up streaming markdown renderer
       const renderer = smd.default_renderer(streamingContent);
@@ -1053,7 +1059,7 @@ export function generatePageView(topic: string): string {
 
       async function generate() {
         try {
-          const response = await fetch('/generate', {
+          const response = await fetch('/p/' + project + '/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ topic }),

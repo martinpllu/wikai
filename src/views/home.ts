@@ -1,10 +1,12 @@
 import { layout } from './layout.js';
 import type { PageInfo } from '../wiki.js';
 
-export function homePage(pages: PageInfo[]): string {
+export function homePage(pages: PageInfo[], project: string = 'default', projects: string[] = ['default']): string {
   return layout({
     title: 'Home',
     pages,
+    project,
+    projects,
     content: `
     <section class="hero">
       <h1>Welcome to WikAI</h1>
@@ -12,7 +14,7 @@ export function homePage(pages: PageInfo[]): string {
     </section>
 
     <section class="generate-section" id="generate-section">
-      <form action="/generate" method="POST" class="generate-form" id="generate-form">
+      <form action="/p/${project}/generate" method="POST" class="generate-form" id="generate-form">
         <label for="topic">Topic or Question</label>
         <textarea
           id="topic"
@@ -44,6 +46,7 @@ export function homePage(pages: PageInfo[]): string {
       const streamingSection = document.getElementById('streaming-section');
       const streamingContent = document.getElementById('streaming-content');
       const topicInput = document.getElementById('topic');
+      const currentProject = '${project}';
 
       // Cmd/Ctrl + Enter to submit
       topicInput.addEventListener('keydown', (e) => {
@@ -71,7 +74,7 @@ export function homePage(pages: PageInfo[]): string {
         const parser = smd.parser(renderer);
 
         try {
-          const response = await fetch('/generate', {
+          const response = await fetch('/p/' + currentProject + '/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({ topic }),
