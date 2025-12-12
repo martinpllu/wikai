@@ -205,3 +205,323 @@ export async function* generatePageStreaming(
 
   return { slug, content: fullContent };
 }
+
+// ============================================
+// Comments and Page Data Types
+// ============================================
+
+export interface CommentMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+export interface CommentThread {
+  id: string;
+  messages: CommentMessage[];
+  createdAt: string;
+  resolved: boolean;
+}
+
+export interface TextAnchor {
+  text: string;      // The selected text
+  prefix: string;    // ~30 chars before for fuzzy matching
+  suffix: string;    // ~30 chars after for fuzzy matching
+}
+
+export interface InlineComment extends CommentThread {
+  anchor: TextAnchor;
+}
+
+export interface PageData {
+  editHistory: ChatMessage[];
+  pageComments: CommentThread[];
+  inlineComments: InlineComment[];
+}
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 15);
+}
+
+// ============================================
+// Page Data CRUD
+// ============================================
+
+export async function readPageData(slug: string): Promise<PageData> {
+  try {
+    const data = await fs.readFile(getChatHistoryPath(slug), 'utf-8');
+    const parsed = JSON.parse(data);
+
+    // Migration: if old format (flat array), convert to new format
+    if (Array.isArray(parsed)) {
+      return {
+        editHistory: parsed as ChatMessage[],
+        pageComments: [],
+        inlineComments: [],
+      };
+    }
+
+    return parsed as PageData;
+  } catch {
+    return {
+      editHistory: [],
+      pageComments: [],
+      inlineComments: [],
+    };
+  }
+}
+
+export async function writePageData(slug: string, data: PageData): Promise<void> {
+  await fs.mkdir(config.dataDir, { recursive: true });
+  await fs.writeFile(getChatHistoryPath(slug), JSON.stringify(data, null, 2));
+}
+
+// ============================================
+// Page-Level Comments
+// ============================================
+
+export async function addPageComment(
+  slug: string,
+  content: string,
+  aiResponse?: string
+): Promise<CommentThread> {
+  const pageData = await readPageData(slug);
+  const timestamp = new Date().toISOString();
+  const threadId = generateId();
+
+  const messages: CommentMessage[] = [
+    {
+      id: generateId(),
+      role: 'user',
+      content,
+      timestamp,
+    },
+  ];
+
+  if (aiResponse) {
+    messages.push({
+      id: generateId(),
+      role: 'assistant',
+      content: aiResponse,
+      timestamp,
+    });
+  }
+
+  const thread: CommentThread = {
+    id: threadId,
+    messages,
+    createdAt: timestamp,
+    resolved: false,
+  };
+
+  pageData.pageComments.push(thread);
+  await writePageData(slug, pageData);
+
+  return thread;
+}
+
+export async function addReplyToPageComment(
+  slug: string,
+  threadId: string,
+  content: string,
+  role: 'user' | 'assistant' = 'user'
+): Promise<CommentThread | null> {
+  const pageData = await readPageData(slug);
+  const thread = pageData.pageComments.find(t => t.id === threadId);
+
+  if (!thread) return null;
+
+  thread.messages.push({
+    id: generateId(),
+    role,
+    content,
+    timestamp: new Date().toISOString(),
+  });
+
+  await writePageData(slug, pageData);
+  return thread;
+}
+
+export async function resolvePageComment(
+  slug: string,
+  threadId: string,
+  resolved: boolean = true
+): Promise<boolean> {
+  const pageData = await readPageData(slug);
+  const thread = pageData.pageComments.find(t => t.id === threadId);
+
+  if (!thread) return false;
+
+  thread.resolved = resolved;
+  await writePageData(slug, pageData);
+  return true;
+}
+
+// ============================================
+// Inline Comments
+// ============================================
+
+export async function addInlineComment(
+  slug: string,
+  anchor: TextAnchor,
+  content: string,
+  aiResponse?: string
+): Promise<InlineComment> {
+  const pageData = await readPageData(slug);
+  const timestamp = new Date().toISOString();
+  const threadId = generateId();
+
+  const messages: CommentMessage[] = [
+    {
+      id: generateId(),
+      role: 'user',
+      content,
+      timestamp,
+    },
+  ];
+
+  if (aiResponse) {
+    messages.push({
+      id: generateId(),
+      role: 'assistant',
+      content: aiResponse,
+      timestamp,
+    });
+  }
+
+  const inlineComment: InlineComment = {
+    id: threadId,
+    messages,
+    createdAt: timestamp,
+    resolved: false,
+    anchor,
+  };
+
+  pageData.inlineComments.push(inlineComment);
+  await writePageData(slug, pageData);
+
+  return inlineComment;
+}
+
+export async function addReplyToInlineComment(
+  slug: string,
+  threadId: string,
+  content: string,
+  role: 'user' | 'assistant' = 'user'
+): Promise<InlineComment | null> {
+  const pageData = await readPageData(slug);
+  const thread = pageData.inlineComments.find(t => t.id === threadId);
+
+  if (!thread) return null;
+
+  thread.messages.push({
+    id: generateId(),
+    role,
+    content,
+    timestamp: new Date().toISOString(),
+  });
+
+  await writePageData(slug, pageData);
+  return thread;
+}
+
+export async function resolveInlineComment(
+  slug: string,
+  threadId: string,
+  resolved: boolean = true
+): Promise<boolean> {
+  const pageData = await readPageData(slug);
+  const thread = pageData.inlineComments.find(t => t.id === threadId);
+
+  if (!thread) return false;
+
+  thread.resolved = resolved;
+  await writePageData(slug, pageData);
+  return true;
+}
+
+// ============================================
+// Text Anchor Matching for Highlights
+// ============================================
+
+export interface AnchorMatch {
+  start: number;
+  end: number;
+}
+
+export function findAnchorPosition(content: string, anchor: TextAnchor): AnchorMatch | null {
+  // 1. Try exact match first
+  const exactIndex = content.indexOf(anchor.text);
+  if (exactIndex !== -1) {
+    return { start: exactIndex, end: exactIndex + anchor.text.length };
+  }
+
+  // 2. Try with surrounding context (prefix + text + suffix)
+  if (anchor.prefix || anchor.suffix) {
+    const contextPattern = (anchor.prefix || '') + anchor.text + (anchor.suffix || '');
+    const contextIndex = content.indexOf(contextPattern);
+    if (contextIndex !== -1) {
+      const start = contextIndex + (anchor.prefix || '').length;
+      return { start, end: start + anchor.text.length };
+    }
+  }
+
+  // 3. Try partial context matches
+  if (anchor.prefix) {
+    const prefixPattern = anchor.prefix + anchor.text;
+    const prefixIndex = content.indexOf(prefixPattern);
+    if (prefixIndex !== -1) {
+      const start = prefixIndex + anchor.prefix.length;
+      return { start, end: start + anchor.text.length };
+    }
+  }
+
+  if (anchor.suffix) {
+    const suffixPattern = anchor.text + anchor.suffix;
+    const suffixIndex = content.indexOf(suffixPattern);
+    if (suffixIndex !== -1) {
+      return { start: suffixIndex, end: suffixIndex + anchor.text.length };
+    }
+  }
+
+  // Anchor not found - comment is orphaned
+  return null;
+}
+
+/**
+ * Inject highlight markers into HTML for inline comments
+ * Returns the HTML with <mark> elements and a list of orphaned comment IDs
+ */
+export function injectInlineHighlights(
+  html: string,
+  inlineComments: InlineComment[]
+): { html: string; orphanedIds: string[] } {
+  const orphanedIds: string[] = [];
+
+  // Sort comments by position (we need to inject from end to start to preserve indices)
+  const matchedComments: { comment: InlineComment; match: AnchorMatch }[] = [];
+
+  for (const comment of inlineComments) {
+    const match = findAnchorPosition(html, comment.anchor);
+    if (match) {
+      matchedComments.push({ comment, match });
+    } else {
+      orphanedIds.push(comment.id);
+    }
+  }
+
+  // Sort by start position descending (so we inject from end first)
+  matchedComments.sort((a, b) => b.match.start - a.match.start);
+
+  let result = html;
+  for (const { comment, match } of matchedComments) {
+    const before = result.slice(0, match.start);
+    const text = result.slice(match.start, match.end);
+    const after = result.slice(match.end);
+    const resolvedClass = comment.resolved ? ' inline-comment-resolved' : '';
+    result = `${before}<mark class="inline-comment${resolvedClass}" data-comment-id="${comment.id}">${text}</mark>${after}`;
+  }
+
+  return { html: result, orphanedIds };
+}

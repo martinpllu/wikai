@@ -39,3 +39,42 @@ Guidelines:
 - Example: "[[To Kill a Mockingbird]] by [[Harper Lee]]" not plain text
 - Output ONLY the markdown content, nothing else`;
 }
+
+export function buildCommentPrompt(
+  pageContent: string,
+  selectedText: string | null,
+  question: string
+): string {
+  const selectionContext = selectedText
+    ? `The user highlighted this text: "${selectedText}"`
+    : '';
+
+  return `You are answering a question about a wiki page. Be concise and helpful.
+
+Page content:
+${pageContent}
+
+${selectionContext}
+
+User's question: ${question}
+
+Provide a helpful, concise answer (2-4 sentences). If the question is about clarifying something in the text, explain it clearly. If it's asking for sources or verification, be honest about what you know.`;
+}
+
+export function buildInlineEditPrompt(
+  pageContent: string,
+  selectedText: string,
+  instruction: string
+): string {
+  return `You are editing a specific part of a wiki page.
+
+Full page content:
+${pageContent}
+
+The user selected this text to edit:
+"${selectedText}"
+
+Their edit instruction: ${instruction}
+
+Return ONLY the replacement text for the selected portion. Do not include any explanation or the rest of the page - just the new text that should replace the selection. Maintain proper markdown formatting.`;
+}
