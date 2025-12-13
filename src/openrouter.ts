@@ -122,7 +122,7 @@ export async function invokeModel(
     },
     body: JSON.stringify({
       model: effectiveModel,
-      max_tokens: 1024,
+      max_tokens: 8192,
       messages,
     }),
   });
@@ -187,7 +187,7 @@ export async function* invokeModelStreaming(
     },
     body: JSON.stringify({
       model: effectiveModel,
-      max_tokens: 1024,
+      max_tokens: 8192,
       stream: true,
       messages,
     }),

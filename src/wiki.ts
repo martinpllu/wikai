@@ -23,9 +23,8 @@ const DEFAULT_SETTINGS: UserSettings = {
 /**
  * Get the effective model ID, appending :online if search is enabled
  */
-export function getEffectiveModel(settings: UserSettings): string | undefined {
-  const model = settings.model || undefined;
-  if (!model) return undefined;
+export function getEffectiveModel(settings: UserSettings): string {
+  const model = settings.model || config.model;
   if (settings.searchEnabled && !model.endsWith(':online')) {
     return `${model}:online`;
   }

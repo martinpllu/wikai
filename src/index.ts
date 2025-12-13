@@ -172,7 +172,11 @@ app.post('/:project/generate', async (c) => {
   }
 
   const topicStr = topic.trim();
-  const slug = slugify(topicStr);
+  // First line is the title, rest is instructions for generation
+  const lines = topicStr.split('\n');
+  const title = lines[0].trim();
+  const instructions = lines.slice(1).join('\n').trim() || undefined;
+  const slug = slugify(title);
 
   // If page already exists, redirect immediately without regenerating
   if (await pageExists(slug, project)) {
@@ -194,11 +198,11 @@ app.post('/:project/generate', async (c) => {
       // Send start event
       await stream.writeSSE({
         event: 'start',
-        data: JSON.stringify({ topic: topicStr, slug }),
+        data: JSON.stringify({ topic: title, slug }),
       });
 
       // Stream content chunks
-      const generator = generatePageStreaming(topicStr, undefined, project, systemPrompt, model);
+      const generator = generatePageStreaming(title, instructions, project, systemPrompt, model);
       let result = await generator.next();
 
       while (!result.done) {

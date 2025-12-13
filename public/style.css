@@ -796,6 +796,12 @@ body[data-sidebar-open="false"] main {
   background: var(--color-bg-elevated);
 }
 
+.generate-form .tip {
+  font-size: 0.85rem;
+  color: var(--color-text-tertiary);
+  margin: 0.5rem 0 1rem;
+}
+
 .generate-form button,
 .chat-form button,
 .btn {
