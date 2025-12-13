@@ -1208,47 +1208,93 @@ body[data-sidebar-open="false"] main {
 
 /* ===== COMMENTS SYSTEM ===== */
 
-/* Tab Toggle */
-.chat-tabs {
-  display: flex;
-  gap: 4px;
+/* Unified Form */
+.unified-form {
   margin-bottom: 1.25rem;
-  padding: 4px;
-  background: var(--color-bg);
-  border-radius: var(--border-radius-md);
 }
 
-.chat-tab {
-  flex: 1;
-  padding: 0.625rem 1rem;
-  border: none;
-  background: transparent;
-  border-radius: var(--border-radius-sm);
+.unified-form textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+  resize: vertical;
+  background: var(--color-bg);
+  color: var(--color-text);
+  transition: all var(--transition-fast);
+}
+
+.unified-form textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
+}
+
+.unified-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.unified-buttons button {
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--border-radius-md);
   font-size: 0.875rem;
   font-family: var(--font-body);
-  font-weight: 500;
-  color: var(--color-text-secondary);
+  font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
-.chat-tab:hover {
+.unified-buttons #btn-ask {
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  border: none;
+}
+
+.unified-buttons #btn-ask:hover {
+  background: var(--color-accent-hover);
+}
+
+.unified-buttons #btn-apply-edit {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.unified-buttons #btn-apply-edit:hover {
+  background: var(--color-bg-hover);
   color: var(--color-text);
+  border-color: var(--color-text-tertiary);
 }
 
-.chat-tab.active {
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
-  box-shadow: 0 1px 3px var(--color-shadow);
+.unified-buttons button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-/* Tab Content */
-.chat-tab-content {
-  animation: fadeIn 0.2s ease;
+/* Version History Section (collapsible) */
+.version-history-section {
+  margin-top: 1.5rem;
 }
 
-.chat-tab-content.hidden {
-  display: none;
+.version-history-section summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  padding: 0.5rem 0;
+  user-select: none;
+}
+
+.version-history-section summary:hover {
+  color: var(--color-text-secondary);
+}
+
+.version-history-section[open] summary {
+  margin-bottom: 0.75rem;
 }
 
 /* Comment Form */
@@ -1444,16 +1490,25 @@ body[data-sidebar-open="false"] main {
 }
 
 /* Orphaned Comments */
-.orphaned-comments {
+.orphaned-comments-section {
   margin-top: 1.25rem;
-  padding-top: 1.25rem;
-  border-top: 1px dashed var(--color-border);
 }
 
-.orphaned-comments h4 {
-  font-size: 0.8rem;
+.orphaned-comments-section summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
   color: var(--color-text-tertiary);
-  margin-bottom: 0.25rem;
+  padding: 0.5rem 0;
+  user-select: none;
+}
+
+.orphaned-comments-section summary:hover {
+  color: var(--color-text-secondary);
+}
+
+.orphaned-comments-section[open] summary {
+  margin-bottom: 0.5rem;
 }
 
 .orphaned-note {
@@ -1637,6 +1692,18 @@ body[data-sidebar-open="false"] main {
   background: var(--color-accent-hover);
 }
 
+.btn-submit.btn-apply {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.btn-submit.btn-apply:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text);
+  border-color: var(--color-text-tertiary);
+}
+
 .btn-resolve-inline {
   background: transparent;
   color: var(--color-text-secondary);
@@ -1736,24 +1803,14 @@ body[data-sidebar-open="false"] main {
 
 /* ===== VERSION HISTORY ===== */
 .version-history {
-  margin-top: 1.75rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--color-border-subtle);
+  margin-top: 0.5rem;
 }
 
 .version-history-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  margin-bottom: 1rem;
-}
-
-.version-history-header h4 {
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  margin: 0;
+  margin-bottom: 0.75rem;
 }
 
 .show-all-toggle {

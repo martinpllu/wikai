@@ -38,55 +38,34 @@ export function initPage(): void {
     }
   });
 
-  // Tab Switching
-  const tabs = document.querySelectorAll<HTMLElement>('.chat-tab');
-  const tabContents: Record<string, HTMLElement | null> = {
-    comment: getElement('tab-comment'),
-    edit: getElement('tab-edit'),
-  };
+  // Unified Form
+  const unifiedTextarea = getElement<HTMLTextAreaElement>('unified-message');
+  const btnAsk = getElement<HTMLButtonElement>('btn-ask');
+  const btnApplyEdit = getElement<HTMLButtonElement>('btn-apply-edit');
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-
-      const tabName = tab.dataset.tab!;
-      Object.keys(tabContents).forEach(key => {
-        tabContents[key]?.classList.toggle('hidden', key !== tabName);
-      });
-    });
-  });
-
-  // Edit Form Submission
-  const editForm = getElement<HTMLFormElement>('edit-form');
-  const editTextarea = getElement<HTMLTextAreaElement>('edit-message');
-  const editButton = getElement<HTMLButtonElement>('edit-submit');
-
-  if (editForm && editTextarea && editButton) {
-    editForm.addEventListener('submit', () => {
-      editButton.disabled = true;
-      editButton.innerHTML = '<span class="spinner"></span> Updating...';
+  if (unifiedTextarea && btnAsk && btnApplyEdit) {
+    // Keyboard shortcuts: Cmd+Enter = Ask, Cmd+Shift+Enter = Apply Edit
+    unifiedTextarea.addEventListener('keydown', (e) => {
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+      if (modKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          btnApplyEdit.click();
+        } else {
+          btnAsk.click();
+        }
+      }
     });
 
-    handleCmdEnter(editTextarea, () => editForm.requestSubmit());
-  }
-
-  // Page Comment Form
-  const commentForm = getElement<HTMLFormElement>('comment-form');
-  const commentTextarea = getElement<HTMLTextAreaElement>('comment-message');
-  const commentButton = getElement<HTMLButtonElement>('comment-submit');
-
-  if (commentForm && commentTextarea && commentButton) {
-    handleCmdEnter(commentTextarea, () => commentForm.requestSubmit());
-
-    commentForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const message = commentTextarea.value.trim();
+    // Ask button - creates comment thread
+    btnAsk.addEventListener('click', async () => {
+      const message = unifiedTextarea.value.trim();
       if (!message) return;
 
-      commentTextarea.disabled = true;
-      commentButton.disabled = true;
-      commentButton.innerHTML = '<span class="spinner"></span> Sending...';
+      unifiedTextarea.disabled = true;
+      btnAsk.disabled = true;
+      btnApplyEdit.disabled = true;
+      btnAsk.innerHTML = '<span class="spinner"></span> Sending...';
 
       try {
         const formData = new FormData();
@@ -109,9 +88,47 @@ export function initPage(): void {
         window.setCostLoading?.(false);
         alert('Error: ' + (error as Error).message);
       } finally {
-        commentTextarea.disabled = false;
-        commentButton.disabled = false;
-        commentButton.textContent = 'Ask';
+        unifiedTextarea.disabled = false;
+        btnAsk.disabled = false;
+        btnApplyEdit.disabled = false;
+        btnAsk.textContent = 'Ask';
+      }
+    });
+
+    // Apply Edit button - modifies page content
+    btnApplyEdit.addEventListener('click', async () => {
+      const message = unifiedTextarea.value.trim();
+      if (!message) return;
+
+      unifiedTextarea.disabled = true;
+      btnAsk.disabled = true;
+      btnApplyEdit.disabled = true;
+      btnApplyEdit.innerHTML = '<span class="spinner"></span> Updating...';
+
+      try {
+        const formData = new FormData();
+        formData.append('message', message);
+
+        window.setCostLoading?.(true);
+        const response = await fetch('/' + project + '/' + slug + '/chat', {
+          method: 'POST',
+          body: formData,
+        });
+        window.setCostLoading?.(false);
+
+        // The /chat endpoint redirects, so we follow the redirect
+        if (response.redirected) {
+          window.location.href = response.url;
+        } else {
+          window.location.reload();
+        }
+      } catch (error) {
+        window.setCostLoading?.(false);
+        alert('Error: ' + (error as Error).message);
+        unifiedTextarea.disabled = false;
+        btnAsk.disabled = false;
+        btnApplyEdit.disabled = false;
+        btnApplyEdit.textContent = 'Apply Edit';
       }
     });
   }
@@ -200,16 +217,14 @@ export function initPage(): void {
 
   // Selection Toolbar
   const toolbarEl = getElement<HTMLElement>('selection-toolbar');
-  const btnCommentEl = getElement<HTMLButtonElement>('btn-comment');
-  const btnEditEl = getElement<HTMLButtonElement>('btn-edit');
+  const btnSelectionEl = getElement<HTMLButtonElement>('btn-selection');
   const wikiContentEl = getElement<HTMLElement>('wiki-content');
 
-  if (!toolbarEl || !btnCommentEl || !btnEditEl || !wikiContentEl) return;
+  if (!toolbarEl || !btnSelectionEl || !wikiContentEl) return;
 
   // Store in const to avoid TypeScript null checks in nested functions
   const toolbar = toolbarEl;
-  const btnComment = btnCommentEl;
-  const btnEdit = btnEditEl;
+  const btnSelection = btnSelectionEl;
   const wikiContent = wikiContentEl;
 
   let currentSelection: string | null = null;
@@ -275,30 +290,21 @@ export function initPage(): void {
 
   let popoverMode: 'comment' | 'edit' | 'view-inline' | null = null;
 
-  function showPopover(mode: 'comment' | 'edit', rect: DOMRect): void {
-    popoverMode = mode;
+  function showPopover(rect: DOMRect): void {
+    popoverMode = 'comment'; // Default mode, but user can choose with buttons
     const preview = currentSelection!.length > 100
       ? currentSelection!.slice(0, 100) + '...'
       : currentSelection;
     popoverSelection.textContent = '"' + preview + '"';
 
-    if (mode === 'comment') {
-      popoverBody.innerHTML = `
-        <textarea id="popover-textarea" placeholder="Ask about this..." rows="3"></textarea>
-        <div class="popover-buttons">
-          <button class="btn-cancel" id="popover-cancel">Cancel</button>
-          <button class="btn-submit" id="popover-submit">Ask</button>
-        </div>
-      `;
-    } else {
-      popoverBody.innerHTML = `
-        <textarea id="popover-textarea" placeholder="What change would you like?" rows="3"></textarea>
-        <div class="popover-buttons">
-          <button class="btn-cancel" id="popover-cancel">Cancel</button>
-          <button class="btn-submit" id="popover-submit">Apply</button>
-        </div>
-      `;
-    }
+    popoverBody.innerHTML = `
+      <textarea id="popover-textarea" placeholder="Ask about this or describe a change..." rows="3"></textarea>
+      <div class="popover-buttons">
+        <button class="btn-cancel" id="popover-cancel">Cancel</button>
+        <button class="btn-submit" id="popover-ask">Ask</button>
+        <button class="btn-submit btn-apply" id="popover-edit">Apply Edit</button>
+      </div>
+    `;
 
     popover.style.top = (window.scrollY + rect.bottom + 10) + 'px';
     popover.style.left = (window.scrollX + rect.left) + 'px';
@@ -352,16 +358,10 @@ export function initPage(): void {
     popoverMode = 'view-inline';
   }
 
-  btnComment.addEventListener('click', () => {
+  btnSelection.addEventListener('click', () => {
     if (!currentRange) return;
     const rect = currentRange.getBoundingClientRect();
-    showPopover('comment', rect);
-  });
-
-  btnEdit.addEventListener('click', () => {
-    if (!currentRange) return;
-    const rect = currentRange.getBoundingClientRect();
-    showPopover('edit', rect);
+    showPopover(rect);
   });
 
   popoverBody.addEventListener('click', async (e) => {
@@ -371,115 +371,132 @@ export function initPage(): void {
       hidePopover();
     }
 
-    if (target.id === 'popover-submit') {
+    // Handle Ask button in popover
+    if (target.id === 'popover-ask') {
       const textarea = getElement<HTMLTextAreaElement>('popover-textarea');
       const message = textarea?.value.trim();
       if (!message || !currentSelection) return;
 
       (target as HTMLButtonElement).disabled = true;
+      const editBtn = getElement<HTMLButtonElement>('popover-edit');
+      if (editBtn) editBtn.disabled = true;
       target.innerHTML = '<span class="spinner"></span>';
 
       try {
         const context = getSelectionContext(currentRange!);
 
-        if (popoverMode === 'comment') {
-          try {
-            // Show loading state in popover
-            const userMessage = message;
-            popoverBody.innerHTML = `
-              <div class="popover-thread">
-                <div class="popover-message popover-message-user">
-                  <strong>You:</strong> ${escapeHtml(userMessage)}
-                </div>
-                <div class="popover-message popover-message-assistant loading">
-                  <strong>AI:</strong> <span class="spinner"></span> Thinking...
-                </div>
-              </div>
-            `;
+        // Show loading state in popover
+        const userMessage = message;
+        popoverBody.innerHTML = `
+          <div class="popover-thread">
+            <div class="popover-message popover-message-user">
+              <strong>You:</strong> ${escapeHtml(userMessage)}
+            </div>
+            <div class="popover-message popover-message-assistant loading">
+              <strong>AI:</strong> <span class="spinner"></span> Thinking...
+            </div>
+          </div>
+        `;
 
-            const formData = new FormData();
-            formData.append('message', message);
-            formData.append('text', context.text);
-            formData.append('prefix', context.prefix);
-            formData.append('suffix', context.suffix);
+        const formData = new FormData();
+        formData.append('message', message);
+        formData.append('text', context.text);
+        formData.append('prefix', context.prefix);
+        formData.append('suffix', context.suffix);
 
-            window.setCostLoading?.(true);
-            const response = await fetch('/' + project + '/' + slug + '/inline', {
-              method: 'POST',
-              body: formData,
-            });
-            window.setCostLoading?.(false);
+        window.setCostLoading?.(true);
+        const response = await fetch('/' + project + '/' + slug + '/inline', {
+          method: 'POST',
+          body: formData,
+        });
+        window.setCostLoading?.(false);
 
-            const result = await response.json();
+        const result = await response.json();
 
-            if (result.success && result.thread) {
-              // Show the thread with AI response in popover
-              showThreadInPopover(result.thread, context.text);
+        if (result.success && result.thread) {
+          // Show the thread with AI response in popover
+          showThreadInPopover(result.thread, context.text);
 
-              // Add highlight to the page (without reload)
-              const range = currentRange;
-              if (range) {
-                const mark = document.createElement('mark');
-                mark.className = 'inline-comment';
-                mark.dataset.commentId = result.thread.id;
-                try {
-                  range.surroundContents(mark);
-                } catch {
-                  // surroundContents fails if selection spans multiple elements
-                  // In that case, just reload
-                  window.location.reload();
-                }
-              }
-            } else {
-              alert('Error: ' + (result.error || 'Unknown error'));
-              hidePopover();
+          // Add highlight to the page (without reload)
+          const range = currentRange;
+          if (range) {
+            const mark = document.createElement('mark');
+            mark.className = 'inline-comment';
+            mark.dataset.commentId = result.thread.id;
+            try {
+              range.surroundContents(mark);
+            } catch {
+              // surroundContents fails if selection spans multiple elements
+              // In that case, just reload
+              window.location.reload();
             }
-          } catch (innerError) {
-            console.error('Error in comment flow:', innerError);
-            alert('Error: ' + (innerError as Error).message);
           }
         } else {
-          // Inline edit - streaming
-          popoverBody.innerHTML = '<div class="edit-streaming"><div class="spinner"></div> Editing...</div>';
+          alert('Error: ' + (result.error || 'Unknown error'));
+          hidePopover();
+        }
+      } catch (error) {
+        window.setCostLoading?.(false);
+        console.error('Error in comment flow:', error);
+        alert('Error: ' + (error as Error).message);
+        hidePopover();
+      }
+    }
 
-          const formData = new FormData();
-          formData.append('instruction', message);
-          formData.append('text', context.text);
+    // Handle Apply Edit button in popover
+    if (target.id === 'popover-edit') {
+      const textarea = getElement<HTMLTextAreaElement>('popover-textarea');
+      const message = textarea?.value.trim();
+      if (!message || !currentSelection) return;
 
-          window.setCostLoading?.(true);
-          const response = await fetch('/' + project + '/' + slug + '/inline-edit', {
-            method: 'POST',
-            body: formData,
-          });
+      (target as HTMLButtonElement).disabled = true;
+      const askBtn = getElement<HTMLButtonElement>('popover-ask');
+      if (askBtn) askBtn.disabled = true;
+      target.innerHTML = '<span class="spinner"></span>';
 
-          const reader = response.body!.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
+      try {
+        const context = getSelectionContext(currentRange!);
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+        // Inline edit - streaming
+        popoverBody.innerHTML = '<div class="edit-streaming"><div class="spinner"></div> Editing...</div>';
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+        const formData = new FormData();
+        formData.append('instruction', message);
+        formData.append('text', context.text);
 
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                try {
-                  const data = JSON.parse(line.slice(6));
-                  if (data.success) {
-                    window.setCostLoading?.(false);
-                    window.location.reload();
-                  }
-                  if (data.message) {
-                    window.setCostLoading?.(false);
-                    alert('Error: ' + data.message);
-                    hidePopover();
-                  }
-                } catch {
-                  // Ignore parse errors
+        window.setCostLoading?.(true);
+        const response = await fetch('/' + project + '/' + slug + '/inline-edit', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.success) {
+                  window.setCostLoading?.(false);
+                  window.location.reload();
                 }
+                if (data.message) {
+                  window.setCostLoading?.(false);
+                  alert('Error: ' + data.message);
+                  hidePopover();
+                }
+              } catch {
+                // Ignore parse errors
               }
             }
           }
@@ -663,6 +680,12 @@ export function initPage(): void {
         : '/' + project + '/' + slug + '/history';
       const response = await fetch(url);
       const data = await response.json();
+
+      // Update version count in summary
+      const versionCountEl = document.getElementById('version-count');
+      if (versionCountEl) {
+        versionCountEl.textContent = String(data.versions?.length || 0);
+      }
 
       if (!data.versions || data.versions.length === 0) {
         versionList.innerHTML = '<p class="no-versions">No version history yet.</p>';

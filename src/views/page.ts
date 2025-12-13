@@ -88,11 +88,11 @@ function renderOrphanedComments(orphanedIds: string[], inlineComments: InlineCom
   `).join('');
 
   return `
-    <div class="orphaned-comments">
-      <h4>Orphaned Comments</h4>
+    <details class="orphaned-comments-section">
+      <summary>Orphaned Comments (${orphaned.length})</summary>
       <p class="orphaned-note">These comments reference text that has been edited or removed.</p>
       ${threads}
-    </div>
+    </details>
   `;
 }
 
@@ -135,11 +135,8 @@ export function wikiPage(
 
     <!-- Selection Toolbar (hidden by default) -->
     <div class="selection-toolbar hidden" id="selection-toolbar">
-      <button class="toolbar-btn" id="btn-comment" title="Add comment">
-        <span class="toolbar-icon">💬</span> Ask
-      </button>
-      <button class="toolbar-btn" id="btn-edit" title="Edit selection">
-        <span class="toolbar-icon">✏️</span> Edit
+      <button class="toolbar-btn" id="btn-selection" title="Ask or Edit">
+        <span class="toolbar-icon">💬</span> Ask / Edit
       </button>
     </div>
 
@@ -154,47 +151,28 @@ export function wikiPage(
     </div>
 
     <section class="chat-section">
-      <!-- Tab Toggle -->
-      <div class="chat-tabs">
-        <button class="chat-tab active" data-tab="comment">Ask</button>
-        <button class="chat-tab" data-tab="edit">Edit</button>
-      </div>
-
-      <!-- Comment Tab Content -->
-      <div class="chat-tab-content" id="tab-comment">
-        <div class="page-comments" id="page-comments">
-          ${renderPageComments(pageData.pageComments, slug)}
+      <form class="unified-form" id="unified-form">
+        <textarea
+          name="message"
+          id="unified-message"
+          placeholder="Ask a question or describe an edit..."
+          rows="3"
+          required
+        ></textarea>
+        <div class="unified-buttons">
+          <button type="button" id="btn-ask">Ask</button>
+          <button type="button" id="btn-apply-edit">Apply Edit</button>
         </div>
-        ${renderOrphanedComments(orphanedIds, pageData.inlineComments, slug)}
-        <form class="comment-form" id="comment-form">
-          <textarea
-            name="message"
-            id="comment-message"
-            placeholder="Ask a question about this page..."
-            rows="3"
-            required
-          ></textarea>
-          <button type="submit" id="comment-submit">Ask</button>
-        </form>
+      </form>
+
+      <div class="page-comments" id="page-comments">
+        ${renderPageComments(pageData.pageComments, slug)}
       </div>
 
-      <!-- Edit Tab Content -->
-      <div class="chat-tab-content hidden" id="tab-edit">
-        <form action="/${project}/${slug}/chat" method="POST" class="chat-form" id="edit-form">
-          <textarea
-            name="message"
-            id="edit-message"
-            placeholder="Give instructions to edit the page..."
-            rows="3"
-            required
-          ></textarea>
-          <button type="submit" id="edit-submit">Apply Edit</button>
-        </form>
-
-        <!-- Version History -->
+      <details class="version-history-section">
+        <summary>Version History (<span id="version-count">...</span>)</summary>
         <div class="version-history" id="version-history">
           <div class="version-history-header">
-            <h4>Version History</h4>
             <label class="show-all-toggle">
               <input type="checkbox" id="show-all-versions" />
               <span>Show reverted</span>
@@ -204,7 +182,9 @@ export function wikiPage(
             <p class="loading-versions"><span class="spinner"></span> Loading versions...</p>
           </div>
         </div>
-      </div>
+      </details>
+
+      ${renderOrphanedComments(orphanedIds, pageData.inlineComments, slug)}
     </section>
 
     <!-- Version Preview Modal -->
