@@ -2178,6 +2178,34 @@ body[data-sidebar-open="false"] main {
   color: var(--color-error);
 }
 
+.settings-toggle {
+  margin-top: 1.25rem;
+}
+
+.settings-toggle .toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.settings-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.settings-toggle .toggle-text {
+  font-size: 0.95rem;
+}
+
+.settings-toggle .settings-description {
+  margin-top: 0.5rem;
+  margin-left: 1.75rem;
+}
+
 /* ===== UTILITY ===== */
 .hidden {
   display: none !important;

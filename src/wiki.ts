@@ -11,12 +11,26 @@ import { invokeModel, invokeModelStreaming, type RequestContext } from './openro
 export interface UserSettings {
   systemPrompt: string;
   model: string;
+  searchEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
   systemPrompt: '',
   model: '',
+  searchEnabled: true,
 };
+
+/**
+ * Get the effective model ID, appending :online if search is enabled
+ */
+export function getEffectiveModel(settings: UserSettings): string | undefined {
+  const model = settings.model || undefined;
+  if (!model) return undefined;
+  if (settings.searchEnabled && !model.endsWith(':online')) {
+    return `${model}:online`;
+  }
+  return model;
+}
 
 function getSettingsPath(): string {
   return path.join(config.dataDir, 'settings.json');

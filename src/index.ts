@@ -37,6 +37,7 @@ import {
   PageVersion,
   readSettings,
   writeSettings,
+  getEffectiveModel,
 } from './wiki.js';
 import { invokeModel, invokeModelStreaming, type RequestContext } from './openrouter.js';
 import { getCostSummary } from './costs.js';
@@ -51,6 +52,7 @@ migrateToProjects().catch(console.error);
 
 // Serve static files
 app.use('/style.css', serveStatic({ root: './public' }));
+app.use('/js/*', serveStatic({ root: './public' }));
 
 // ============================================
 // Project Management Routes
@@ -107,8 +109,10 @@ app.post('/settings', async (c) => {
     const body = await c.req.parseBody();
     const systemPrompt = typeof body['systemPrompt'] === 'string' ? body['systemPrompt'] : '';
     const model = typeof body['model'] === 'string' ? body['model'] : '';
+    // Checkbox is present in body only if checked
+    const searchEnabled = body['searchEnabled'] === 'on';
 
-    await writeSettings({ systemPrompt, model });
+    await writeSettings({ systemPrompt, model, searchEnabled });
     return c.json({ success: true });
   } catch (error) {
     console.error('Settings error:', error);
@@ -172,7 +176,7 @@ app.post('/p/:project/generate', async (c) => {
   // Get user settings
   const settings = await readSettings();
   const systemPrompt = settings.systemPrompt || undefined;
-  const model = settings.model || undefined;
+  const model = getEffectiveModel(settings);
 
   return streamSSE(c, async (stream) => {
     try {
@@ -261,7 +265,7 @@ app.post('/p/:project/wiki/:slug/chat', async (c) => {
     const userMessage = message.trim();
     const settings = await readSettings();
     const systemPrompt = settings.systemPrompt || undefined;
-    const model = settings.model || undefined;
+    const model = getEffectiveModel(settings);
     const { content } = await generatePage(topic, userMessage, project, systemPrompt, model);
 
     // Add version for the edit
@@ -310,7 +314,7 @@ app.post('/p/:project/wiki/:slug/comment', async (c) => {
     // Generate AI response
     const settings = await readSettings();
     const systemPrompt = settings.systemPrompt || undefined;
-    const model = settings.model || undefined;
+    const model = getEffectiveModel(settings);
     const prompt = buildCommentPrompt(pageContent, null, message.trim());
     const context: RequestContext = {
       action: 'comment',
@@ -360,7 +364,7 @@ app.post('/p/:project/wiki/:slug/comment/:id/reply', async (c) => {
       }));
       const settings = await readSettings();
       const systemPrompt = settings.systemPrompt || undefined;
-      const model = settings.model || undefined;
+      const model = getEffectiveModel(settings);
       const prompt = buildCommentPrompt(pageContent, null, message.trim(), conversationHistory);
       const context: RequestContext = {
         action: 'reply',
@@ -440,7 +444,7 @@ app.post('/p/:project/wiki/:slug/inline', async (c) => {
     // Generate AI response
     const settings = await readSettings();
     const systemPrompt = settings.systemPrompt || undefined;
-    const model = settings.model || undefined;
+    const model = getEffectiveModel(settings);
     const prompt = buildCommentPrompt(pageContent, text, message.trim());
     const context: RequestContext = {
       action: 'inline-comment',
@@ -491,7 +495,7 @@ app.post('/p/:project/wiki/:slug/inline/:id/reply', async (c) => {
       }));
       const settings = await readSettings();
       const systemPrompt = settings.systemPrompt || undefined;
-      const model = settings.model || undefined;
+      const model = getEffectiveModel(settings);
       const prompt = buildCommentPrompt(pageContent, selectedText, message.trim(), conversationHistory);
       const context: RequestContext = {
         action: 'inline-reply',
@@ -559,7 +563,7 @@ app.post('/p/:project/wiki/:slug/inline-edit', async (c) => {
 
   const settings = await readSettings();
   const systemPrompt = settings.systemPrompt || undefined;
-  const model = settings.model || undefined;
+  const model = getEffectiveModel(settings);
 
   return streamSSE(c, async (stream) => {
     try {
