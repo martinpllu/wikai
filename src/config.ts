@@ -3,7 +3,8 @@ import { loadEnv } from './env.js';
 loadEnv();
 
 export const config = {
-  dataDir: process.env.DATA_DIR ?? 'data',
+  configDir: '.delve',  // App config (settings, costs) - should be gitignored
+  dataDir: process.env.DATA_DIR ?? '.delve/data',  // Wiki content
   port: parseInt(process.env.PORT ?? '3171'),
 };
 

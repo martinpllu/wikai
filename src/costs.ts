@@ -31,7 +31,7 @@ export interface CostSummary {
 const COSTS_FILE = 'costs.json';
 
 function getCostsFilePath(): string {
-  return path.join(config.dataDir, COSTS_FILE);
+  return path.join(config.configDir, COSTS_FILE);
 }
 
 export function loadCosts(): CostRecord[] {
@@ -50,9 +50,9 @@ export function loadCosts(): CostRecord[] {
 export function saveCosts(costs: CostRecord[]): void {
   const filePath = getCostsFilePath();
 
-  // Ensure data directory exists
-  if (!fs.existsSync(config.dataDir)) {
-    fs.mkdirSync(config.dataDir, { recursive: true });
+  // Ensure config directory exists
+  if (!fs.existsSync(config.configDir)) {
+    fs.mkdirSync(config.configDir, { recursive: true });
   }
 
   fs.writeFileSync(filePath, JSON.stringify(costs, null, 2));

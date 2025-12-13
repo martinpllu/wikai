@@ -38,7 +38,7 @@ export function getEffectiveModel(settings: UserSettings): string {
 }
 
 function getSettingsPath(): string {
-  return path.join(config.dataDir, 'settings.json');
+  return path.join(config.configDir, 'settings.json');
 }
 
 export async function readSettings(): Promise<UserSettings> {
@@ -51,7 +51,7 @@ export async function readSettings(): Promise<UserSettings> {
 }
 
 export async function writeSettings(settings: UserSettings): Promise<void> {
-  await fs.mkdir(config.dataDir, { recursive: true });
+  await fs.mkdir(config.configDir, { recursive: true });
   await fs.writeFile(getSettingsPath(), JSON.stringify(settings, null, 2));
 }
 
