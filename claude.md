@@ -83,6 +83,9 @@ To record a new demo video for the README:
 2. Ensure ffmpeg is installed: `brew install ffmpeg`
 3. Run the recording script: `npx tsx scripts/record-demo.ts`
 4. Convert to MP4: `ffmpeg -i videos/demo.webm -c:v libx264 -crf 20 -preset slow -y demo.mp4`
+5. Upload to GitHub: drag `demo.mp4` into a new issue at https://github.com/martinpllu/delve/issues/new
+6. Copy the generated `https://github.com/user-attachments/assets/...` URL
+7. Update README.md with the new URL
 
 The script uses Playwright to automate a browser session showing:
 - Page generation with streaming
