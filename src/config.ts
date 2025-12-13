@@ -36,6 +36,8 @@ Guidelines:
 - Brief intro paragraph (2-3 sentences)
 - 2-3 key sections with bullet points
 - Use [[WikiLinks]] liberally for any notable entity: people, books, places, concepts, historical events, or anything wiki-page-worthy
+- For ambiguous terms, use disambiguation in the link target: [[Port (computing)]], [[Mercury (planet)]], [[Java (programming language)]]
+- Display text can differ from link target: [[Port (computing)|port]] shows "port" but links to the disambiguated page
 - Example: "[[To Kill a Mockingbird]] by [[Harper Lee]]" not plain text
 - Output ONLY the markdown content, nothing else`;
 }
