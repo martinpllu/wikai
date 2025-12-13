@@ -9,7 +9,7 @@ const testProjectName = `${TEST_PROJECT_PREFIX}${Math.random().toString(36).subs
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('WikAI Complete Workflow', () => {
+test.describe('Delve Complete Workflow', () => {
   test.beforeAll(() => {
     console.log(`Test project name: ${testProjectName}`);
   });

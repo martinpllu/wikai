@@ -54,7 +54,8 @@ export function layout(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - WikAI</title>
+  <title>${title} - Delve</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -63,7 +64,12 @@ export function layout(
 <body>
   <aside class="sidebar" id="sidebar" data-pages='${pagesJson}' data-current-slug="${currentSlug}" data-project="${project}" data-projects='${projectsJson}'>
     <div class="sidebar-header">
-      <a href="/${project}" class="logo">wikai</a>
+      <a href="/${project}" class="logo">
+        <svg class="logo-icon" width="18" height="18" viewBox="0 0 32 32">
+          <polygon points="16,28 2.1,4.8 29.9,4.8" fill="#115e59"/>
+        </svg>
+        Delve
+      </a>
       <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>

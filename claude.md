@@ -1,8 +1,8 @@
-# WikAI Architecture
+# Delve Architecture
 
 ## Overview
 
-WikAI is a TypeScript/Hono web app that generates wiki pages using OpenRouter's streaming API. Pages are stored as markdown files and rendered with wiki-style `[[links]]`.
+Delve is a TypeScript/Hono web app that generates wiki pages using OpenRouter's streaming API. Pages are stored as markdown files and rendered with wiki-style `[[links]]`.
 
 ## Project Structure
 
@@ -29,12 +29,16 @@ data/
 
 The dev server runs with hot-reload. Check `.env` for the PORT (default: 3000).
 
-**Important**: The server is usually already running. Before starting a new server:
-1. Check if one exists: `curl -s http://localhost:$PORT/ > /dev/null && echo "Running"`
-2. If needed, kill existing: `lsof -ti:$PORT | xargs kill -9`
-3. Start: `pnpm dev` (NOT `pnpm start` - dev watches for client changes)
+**DO NOT restart the server after making changes.** The `pnpm dev` command uses:
+- `tsx watch` for server-side TypeScript (auto-restarts on changes to `src/`)
+- Client watcher that rebuilds `bundle.js` on changes to `src/client/`
 
-Code changes auto-reload - no need to restart the server.
+Just edit files and refresh the browser. Server restarts are only needed if:
+- The server crashed
+- You changed environment variables in `.env`
+- You installed new dependencies
+
+**If the server isn't running**, start it with: `pnpm dev`
 
 ## Key Features
 

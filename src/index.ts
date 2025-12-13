@@ -52,6 +52,8 @@ migrateToProjects().catch(console.error);
 
 // Serve static files
 app.use('/style.css', serveStatic({ root: './public' }));
+app.use('/favicon.svg', serveStatic({ root: './public' }));
+app.use('/logo.svg', serveStatic({ root: './public' }));
 app.use('/js/*', serveStatic({ root: './public' }));
 
 // ============================================
@@ -706,7 +708,7 @@ app.post('/:project/:slug/delete', async (c) => {
 });
 
 // Start server
-console.log(`Starting WikAI on http://localhost:${config.port}`);
+console.log(`Starting Delve on http://localhost:${config.port}`);
 serve({
   fetch: app.fetch,
   port: config.port,

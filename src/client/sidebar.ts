@@ -34,9 +34,9 @@ let projectCreateCancel: HTMLElement | null;
 let projectCreateSubmit: HTMLElement | null;
 
 const state: SidebarState = {
-  sidebarOpen: localStorage.getItem('wikai-sidebar') !== 'false',
-  sortMode: (localStorage.getItem('wikai-sort') as 'recent' | 'alpha') || 'recent',
-  favorites: JSON.parse(localStorage.getItem('wikai-favorites') || '[]'),
+  sidebarOpen: localStorage.getItem('delve-sidebar') !== 'false',
+  sortMode: (localStorage.getItem('delve-sort') as 'recent' | 'alpha') || 'recent',
+  favorites: JSON.parse(localStorage.getItem('delve-favorites') || '[]'),
   searchQuery: '',
   pages: [],
   currentSlug: '',
@@ -47,9 +47,9 @@ const state: SidebarState = {
 };
 
 function saveState(): void {
-  localStorage.setItem('wikai-sidebar', String(state.sidebarOpen));
-  localStorage.setItem('wikai-sort', state.sortMode);
-  localStorage.setItem('wikai-favorites', JSON.stringify(state.favorites));
+  localStorage.setItem('delve-sidebar', String(state.sidebarOpen));
+  localStorage.setItem('delve-sort', state.sortMode);
+  localStorage.setItem('delve-favorites', JSON.stringify(state.favorites));
 }
 
 function applySidebarState(): void {

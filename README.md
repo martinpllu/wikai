@@ -1,4 +1,4 @@
-# WikAI
+# Delve
 
 A personal AI-powered wiki that generates knowledge pages on any topic using Claude via OpenRouter.
 

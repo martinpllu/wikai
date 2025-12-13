@@ -1,5 +1,5 @@
 /* ========================================
-   WikAI - Modern Design System
+   Delve - Modern Design System
    Theme-ready architecture with CSS variables
    ======================================== */
 
@@ -115,6 +115,9 @@ body {
 }
 
 .sidebar .logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 700;
@@ -123,6 +126,10 @@ body {
   white-space: nowrap;
   color: var(--color-logo);
   transition: opacity var(--transition-fast);
+}
+
+.sidebar .logo-icon {
+  flex-shrink: 0;
 }
 
 .sidebar .logo:hover {

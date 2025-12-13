@@ -118,7 +118,7 @@ export async function invokeModel(
       'Authorization': `Bearer ${config.openrouterApiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'http://localhost:3000',
-      'X-Title': 'WikAI',
+      'X-Title': 'Delve',
     },
     body: JSON.stringify({
       model: effectiveModel,
@@ -183,7 +183,7 @@ export async function* invokeModelStreaming(
       'Authorization': `Bearer ${config.openrouterApiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'http://localhost:3000',
-      'X-Title': 'WikAI',
+      'X-Title': 'Delve',
     },
     body: JSON.stringify({
       model: effectiveModel,
