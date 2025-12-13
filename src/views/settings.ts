@@ -1,5 +1,5 @@
 import { layout } from './layout.js';
-import type { PageInfo, UserSettings } from '../wiki.js';
+import { DEFAULT_PROJECT, type PageInfo, type UserSettings } from '../wiki.js';
 import { config } from '../config.js';
 
 function escapeHtml(text: string): string {
@@ -13,8 +13,8 @@ function escapeHtml(text: string): string {
 export function settingsPage(
   settings: UserSettings,
   pages: PageInfo[] = [],
-  project: string = 'default',
-  projects: string[] = ['default']
+  project: string = DEFAULT_PROJECT,
+  projects: string[] = [DEFAULT_PROJECT]
 ): string {
   return layout({
     title: 'Settings',

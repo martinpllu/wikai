@@ -18,7 +18,7 @@ function formatCost(cost: number): string {
 }
 
 function fetchLatestCost(): void {
-  fetch('/api/costs?limit=1')
+  fetch('/_api/costs?limit=1')
     .then(r => r.json())
     .then((data: CostData) => {
       if (data.totalRequests > previousRequestCount && data.recentRequests.length > 0) {
@@ -43,7 +43,7 @@ export function initCostTracker(): void {
   };
 
   // Initialize previous request count
-  fetch('/api/costs?limit=1')
+  fetch('/_api/costs?limit=1')
     .then(r => r.json())
     .then((data: CostData) => { previousRequestCount = data.totalRequests; })
     .catch(() => {});

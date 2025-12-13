@@ -21,7 +21,7 @@ export async function initGeneratePage(): Promise<void> {
 
   try {
     window.setCostLoading?.(true);
-    const response = await fetch('/p/' + project + '/generate', {
+    const response = await fetch('/' + project + '/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ topic }),

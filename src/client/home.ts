@@ -43,7 +43,7 @@ export function initHome(): void {
 
     try {
       window.setCostLoading?.(true);
-      const response = await fetch('/p/' + currentProject + '/generate', {
+      const response = await fetch('/' + currentProject + '/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ topic }),

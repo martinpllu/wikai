@@ -1,7 +1,7 @@
 import { layout } from './layout.js';
-import type { PageInfo } from '../wiki.js';
+import { DEFAULT_PROJECT, type PageInfo } from '../wiki.js';
 
-export function homePage(pages: PageInfo[], project: string = 'default', projects: string[] = ['default']): string {
+export function homePage(pages: PageInfo[], project: string = DEFAULT_PROJECT, projects: string[] = [DEFAULT_PROJECT]): string {
   return layout({
     title: 'Home',
     pages,
@@ -10,7 +10,7 @@ export function homePage(pages: PageInfo[], project: string = 'default', project
     content: `
     <section class="generate-section" id="generate-section">
       <h1>Create new page</h1>
-      <form action="/p/${project}/generate" method="POST" class="generate-form" id="generate-form" data-project="${project}">
+      <form action="/${project}/generate" method="POST" class="generate-form" id="generate-form" data-project="${project}">
         <label for="topic">What would you like to know about?</label>
         <textarea
           id="topic"

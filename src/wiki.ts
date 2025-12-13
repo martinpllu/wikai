@@ -72,7 +72,7 @@ export function unslugify(slug: string): string {
 // Project Management
 // ============================================
 
-const DEFAULT_PROJECT = 'default';
+export const DEFAULT_PROJECT = 'main';
 
 export function getProjectDir(project: string): string {
   return path.join(config.dataDir, project);
@@ -199,8 +199,6 @@ export async function migrateToProjects(): Promise<void> {
     }
   }
 }
-
-export { DEFAULT_PROJECT };
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -347,7 +345,7 @@ async function processWikiLinks(html: string, project: string = DEFAULT_PROJECT)
     const className = exists ? 'wiki-link' : 'wiki-link wiki-link-missing';
 
     result += html.slice(lastIndex, index);
-    result += `<a href="/p/${project}/wiki/${slug}" class="${className}">${text}</a>`;
+    result += `<a href="/${project}/${slug}" class="${className}">${text}</a>`;
     lastIndex = index + match.length;
   }
   result += html.slice(lastIndex);

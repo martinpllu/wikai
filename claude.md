@@ -20,9 +20,16 @@ src/
 public/
 └── style.css      # All styles
 data/
-└── {project}/     # Project directories (default: "default")
+└── {project}/     # Project directories (default: "main")
     ├── {slug}.md  # Page content
     └── {slug}.json # Page metadata
+```
+
+## Development
+
+Run the dev server with auto-reload:
+```
+pnpm dev
 ```
 
 ## Key Features
@@ -35,11 +42,14 @@ data/
 
 ## URL Structure
 
-- `/` - Redirects to `/p/default`
-- `/p/{project}` - Project home page
-- `/p/{project}/wiki/{slug}` - Wiki page view
-- `/p/{project}/generate` - Generate new page (POST)
-- `/api/projects` - List/create projects
+- `/` - Redirects to `/main`
+- `/{project}` - Project home page
+- `/{project}/{slug}` - Wiki page view
+- `/{project}/generate` - Generate new page (POST)
+- `/_settings` - Settings page
+- `/_api/projects` - List/create projects
+
+Routes starting with `/_` are reserved for system routes. Project names cannot start with underscore.
 
 ## Data Model
 

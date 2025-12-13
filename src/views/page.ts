@@ -1,6 +1,5 @@
-import { layout } from './layout.js';
-import type { PageInfo, PageData, CommentThread, InlineComment } from '../wiki.js';
-import { injectInlineHighlights } from '../wiki.js';
+import { layout, encodeJsonForAttr } from './layout.js';
+import { DEFAULT_PROJECT, injectInlineHighlights, type PageInfo, type PageData, type CommentThread, type InlineComment } from '../wiki.js';
 
 function formatTimestamp(isoString: string): string {
   const date = new Date(isoString);
@@ -103,8 +102,8 @@ export function wikiPage(
   htmlContent: string,
   pageData: PageData,
   pages: PageInfo[] = [],
-  project: string = 'default',
-  projects: string[] = ['default']
+  project: string = DEFAULT_PROJECT,
+  projects: string[] = [DEFAULT_PROJECT]
 ): string {
   // Inject inline comment highlights into the HTML
   const { html: contentWithHighlights, orphanedIds } = injectInlineHighlights(
@@ -113,7 +112,7 @@ export function wikiPage(
   );
 
   // Prepare inline comments data for client-side JS
-  const inlineCommentsJson = JSON.stringify(pageData.inlineComments);
+  const inlineCommentsJson = encodeJsonForAttr(pageData.inlineComments);
 
   return layout({
     title,
@@ -181,7 +180,7 @@ export function wikiPage(
 
       <!-- Edit Tab Content -->
       <div class="chat-tab-content hidden" id="tab-edit">
-        <form action="/p/${project}/wiki/${slug}/chat" method="POST" class="chat-form" id="edit-form">
+        <form action="/${project}/${slug}/chat" method="POST" class="chat-form" id="edit-form">
           <textarea
             name="message"
             id="edit-message"
@@ -252,7 +251,7 @@ export function errorPage(message: string): string {
   `);
 }
 
-export function generatePageView(topic: string, project: string = 'default'): string {
+export function generatePageView(topic: string, project: string = DEFAULT_PROJECT): string {
   return layout(`Generating: ${topic}`, `
     <section class="streaming-section" id="streaming-section" data-topic="${topic}" data-project="${project}">
       <div class="streaming-header">

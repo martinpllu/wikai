@@ -131,7 +131,7 @@ function renderPageItem(page: PageInfo): string {
 
   return `
     <li class="page-item${isActive ? ' active' : ''}" data-slug="${page.slug}">
-      <a href="/p/${state.currentProject}/wiki/${page.slug}">
+      <a href="/${state.currentProject}/${page.slug}">
         <span class="page-title">${page.title}</span>
       </a>
       <button class="favorite-btn${isFav ? ' active' : ''}" data-slug="${page.slug}" aria-label="${isFav ? 'Remove from' : 'Add to'} favorites">
@@ -190,7 +190,7 @@ function renderProjectList(): void {
     btn.onclick = () => {
       const project = btn.dataset.project;
       if (project !== state.currentProject) {
-        window.location.href = '/p/' + project;
+        window.location.href = '/' + project;
       } else {
         closeProjectDropdown();
       }
@@ -236,7 +236,7 @@ async function createProject(): Promise<void> {
   if (!name) return;
 
   try {
-    const response = await fetch('/api/projects', {
+    const response = await fetch('/_api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ name }),
@@ -249,7 +249,7 @@ async function createProject(): Promise<void> {
     }
 
     // Navigate to the new project
-    window.location.href = '/p/' + data.project;
+    window.location.href = '/' + data.project;
   } catch (error) {
     alert('Failed to create project: ' + (error as Error).message);
   }
@@ -322,7 +322,7 @@ function handleKeydown(e: KeyboardEvent): void {
   // Cmd/Ctrl + P - New page
   if (modKey && e.key === 'p') {
     e.preventDefault();
-    window.location.href = '/p/' + state.currentProject;
+    window.location.href = '/' + state.currentProject;
   }
 
   // Escape - Clear search or close sidebar

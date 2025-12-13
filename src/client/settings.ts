@@ -28,7 +28,7 @@ export function initSettings(): void {
 
     try {
       const formData = new FormData(form);
-      const response = await fetch('/settings', {
+      const response = await fetch('/_settings', {
         method: 'POST',
         body: formData,
       });

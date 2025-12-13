@@ -55,46 +55,11 @@ app.use('/style.css', serveStatic({ root: './public' }));
 app.use('/js/*', serveStatic({ root: './public' }));
 
 // ============================================
-// Project Management Routes
-// ============================================
-
-// List all projects
-app.get('/api/projects', async (c) => {
-  const projects = await listProjects();
-  return c.json({ projects });
-});
-
-// Get cost summary
-app.get('/api/costs', async (c) => {
-  const limit = parseInt(c.req.query('limit') || '10');
-  const summary = getCostSummary(limit);
-  return c.json(summary);
-});
-
-// Create a new project
-app.post('/api/projects', async (c) => {
-  const body = await c.req.parseBody();
-  const name = body['name'];
-
-  if (!name || typeof name !== 'string') {
-    return c.json({ error: 'Please provide a project name' }, 400);
-  }
-
-  const result = await createProject(name.trim());
-  if (!result.success) {
-    return c.json({ error: result.error }, 400);
-  }
-
-  const sanitizedName = slugify(name.trim());
-  return c.json({ success: true, project: sanitizedName });
-});
-
-// ============================================
-// Settings Routes
+// System Routes (/_*)
 // ============================================
 
 // Settings page
-app.get('/settings', async (c) => {
+app.get('/_settings', async (c) => {
   const [settings, pages, projects] = await Promise.all([
     readSettings(),
     listPages(DEFAULT_PROJECT),
@@ -104,7 +69,7 @@ app.get('/settings', async (c) => {
 });
 
 // Save settings
-app.post('/settings', async (c) => {
+app.post('/_settings', async (c) => {
   try {
     const body = await c.req.parseBody();
     const systemPrompt = typeof body['systemPrompt'] === 'string' ? body['systemPrompt'] : '';
@@ -122,12 +87,53 @@ app.post('/settings', async (c) => {
 });
 
 // ============================================
-// Root Routes (redirect to default project)
+// API Routes (/_api/*)
+// ============================================
+
+// List all projects
+app.get('/_api/projects', async (c) => {
+  const projects = await listProjects();
+  return c.json({ projects });
+});
+
+// Get cost summary
+app.get('/_api/costs', async (c) => {
+  const limit = parseInt(c.req.query('limit') || '10');
+  const summary = getCostSummary(limit);
+  return c.json(summary);
+});
+
+// Create a new project
+app.post('/_api/projects', async (c) => {
+  const body = await c.req.parseBody();
+  const name = body['name'];
+
+  if (!name || typeof name !== 'string') {
+    return c.json({ error: 'Please provide a project name' }, 400);
+  }
+
+  // Validate project name doesn't start with underscore
+  const trimmedName = name.trim();
+  if (trimmedName.startsWith('_')) {
+    return c.json({ error: 'Project names cannot start with underscore' }, 400);
+  }
+
+  const result = await createProject(trimmedName);
+  if (!result.success) {
+    return c.json({ error: result.error }, 400);
+  }
+
+  const sanitizedName = slugify(trimmedName);
+  return c.json({ success: true, project: sanitizedName });
+});
+
+// ============================================
+// Root Route
 // ============================================
 
 // Home page - redirect to default project
 app.get('/', async (c) => {
-  return c.redirect(`/p/${DEFAULT_PROJECT}`);
+  return c.redirect(`/${DEFAULT_PROJECT}`);
 });
 
 // ============================================
@@ -135,8 +141,13 @@ app.get('/', async (c) => {
 // ============================================
 
 // Project home page
-app.get('/p/:project', async (c) => {
+app.get('/:project', async (c) => {
   const project = c.req.param('project');
+
+  // Skip if this looks like a system route (shouldn't happen, but safety check)
+  if (project.startsWith('_')) {
+    return c.notFound();
+  }
 
   // Validate project exists (or it's the default project)
   if (project !== DEFAULT_PROJECT && !(await projectExists(project))) {
@@ -151,7 +162,7 @@ app.get('/p/:project', async (c) => {
 });
 
 // Generate page from topic (streaming SSE) - project scoped
-app.post('/p/:project/generate', async (c) => {
+app.post('/:project/generate', async (c) => {
   const project = c.req.param('project');
   const body = await c.req.parseBody();
   const topic = body['topic'];
@@ -168,7 +179,7 @@ app.post('/p/:project/generate', async (c) => {
     return streamSSE(c, async (stream) => {
       await stream.writeSSE({
         event: 'complete',
-        data: JSON.stringify({ slug, url: `/p/${project}/wiki/${slug}` }),
+        data: JSON.stringify({ slug, url: `/${project}/${slug}` }),
       });
     });
   }
@@ -201,7 +212,7 @@ app.post('/p/:project/generate', async (c) => {
       // Send complete event
       await stream.writeSSE({
         event: 'complete',
-        data: JSON.stringify({ slug, url: `/p/${project}/wiki/${slug}` }),
+        data: JSON.stringify({ slug, url: `/${project}/${slug}` }),
       });
     } catch (error) {
       console.error('Generation error:', error);
@@ -215,22 +226,28 @@ app.post('/p/:project/generate', async (c) => {
 });
 
 // Streaming generation page (for wiki links to non-existent pages)
-app.get('/p/:project/generate-page/:topic', async (c) => {
+app.get('/:project/generate-page/:topic', async (c) => {
   const project = c.req.param('project');
   const topic = decodeURIComponent(c.req.param('topic'));
   return c.html(generatePageView(topic, project));
 });
 
 // View wiki page
-app.get('/p/:project/wiki/:slug', async (c) => {
+app.get('/:project/:slug', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
+
+  // Skip if this looks like a system route
+  if (project.startsWith('_')) {
+    return c.notFound();
+  }
+
   const exists = await pageExists(slug, project);
 
   if (!exists) {
     // Redirect to streaming generation page
     const topic = unslugify(slug);
-    return c.redirect(`/p/${project}/generate-page/${encodeURIComponent(topic)}`);
+    return c.redirect(`/${project}/generate-page/${encodeURIComponent(topic)}`);
   }
 
   const content = await readPage(slug, project);
@@ -249,7 +266,7 @@ app.get('/p/:project/wiki/:slug', async (c) => {
 });
 
 // Chat/edit page
-app.post('/p/:project/wiki/:slug/chat', async (c) => {
+app.post('/:project/:slug/chat', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
 
@@ -280,7 +297,7 @@ app.post('/p/:project/wiki/:slug/chat', async (c) => {
     );
     await writePageData(slug, pageData, project);
 
-    return c.redirect(`/p/${project}/wiki/${slug}`);
+    return c.redirect(`/${project}/${slug}`);
   } catch (error) {
     console.error('Chat error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -293,7 +310,7 @@ app.post('/p/:project/wiki/:slug/chat', async (c) => {
 // ============================================
 
 // Add page-level comment (with AI auto-response)
-app.post('/p/:project/wiki/:slug/comment', async (c) => {
+app.post('/:project/:slug/comment', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
 
@@ -335,7 +352,7 @@ app.post('/p/:project/wiki/:slug/comment', async (c) => {
 });
 
 // Reply to page-level comment
-app.post('/p/:project/wiki/:slug/comment/:id/reply', async (c) => {
+app.post('/:project/:slug/comment/:id/reply', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
   const threadId = c.req.param('id');
@@ -384,7 +401,7 @@ app.post('/p/:project/wiki/:slug/comment/:id/reply', async (c) => {
 });
 
 // Resolve/unresolve page comment
-app.post('/p/:project/wiki/:slug/comment/:id/resolve', async (c) => {
+app.post('/:project/:slug/comment/:id/resolve', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
   const threadId = c.req.param('id');
@@ -411,7 +428,7 @@ app.post('/p/:project/wiki/:slug/comment/:id/resolve', async (c) => {
 // ============================================
 
 // Add inline comment (with AI auto-response)
-app.post('/p/:project/wiki/:slug/inline', async (c) => {
+app.post('/:project/:slug/inline', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
 
@@ -465,7 +482,7 @@ app.post('/p/:project/wiki/:slug/inline', async (c) => {
 });
 
 // Reply to inline comment
-app.post('/p/:project/wiki/:slug/inline/:id/reply', async (c) => {
+app.post('/:project/:slug/inline/:id/reply', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
   const threadId = c.req.param('id');
@@ -515,7 +532,7 @@ app.post('/p/:project/wiki/:slug/inline/:id/reply', async (c) => {
 });
 
 // Resolve/unresolve inline comment
-app.post('/p/:project/wiki/:slug/inline/:id/resolve', async (c) => {
+app.post('/:project/:slug/inline/:id/resolve', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
   const threadId = c.req.param('id');
@@ -541,7 +558,7 @@ app.post('/p/:project/wiki/:slug/inline/:id/resolve', async (c) => {
 // Inline Edit Route (SSE streaming)
 // ============================================
 
-app.post('/p/:project/wiki/:slug/inline-edit', async (c) => {
+app.post('/:project/:slug/inline-edit', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
 
@@ -610,7 +627,7 @@ app.post('/p/:project/wiki/:slug/inline-edit', async (c) => {
 
 // Get version history for a page
 // ?all=true returns all versions including superseded ones
-app.get('/p/:project/wiki/:slug/history', async (c) => {
+app.get('/:project/:slug/history', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
   const showAll = c.req.query('all') === 'true';
@@ -628,7 +645,7 @@ app.get('/p/:project/wiki/:slug/history', async (c) => {
 });
 
 // Get a specific version for preview
-app.get('/p/:project/wiki/:slug/version/:version', async (c) => {
+app.get('/:project/:slug/version/:version', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
   const versionNum = parseInt(c.req.param('version'));
@@ -648,7 +665,7 @@ app.get('/p/:project/wiki/:slug/version/:version', async (c) => {
 });
 
 // Revert to a specific version
-app.post('/p/:project/wiki/:slug/revert', async (c) => {
+app.post('/:project/:slug/revert', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
   const body = await c.req.parseBody();
@@ -667,7 +684,7 @@ app.post('/p/:project/wiki/:slug/revert', async (c) => {
 });
 
 // Delete a page
-app.post('/p/:project/wiki/:slug/delete', async (c) => {
+app.post('/:project/:slug/delete', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
 

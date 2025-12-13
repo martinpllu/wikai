@@ -93,7 +93,7 @@ export function initPage(): void {
         formData.append('message', message);
 
         window.setCostLoading?.(true);
-        const response = await fetch('/p/' + project + '/wiki/' + slug + '/comment', {
+        const response = await fetch('/' + project + '/' + slug + '/comment', {
           method: 'POST',
           body: formData,
         });
@@ -153,7 +153,7 @@ export function initPage(): void {
         formData.append('message', message);
 
         window.setCostLoading?.(true);
-        const response = await fetch('/p/' + project + '/wiki/' + slug + '/' + endpoint + '/' + threadId + '/reply', {
+        const response = await fetch('/' + project + '/' + slug + '/' + endpoint + '/' + threadId + '/reply', {
           method: 'POST',
           body: formData,
         });
@@ -181,7 +181,7 @@ export function initPage(): void {
         const formData = new FormData();
         formData.append('resolved', isResolved ? 'false' : 'true');
 
-        const response = await fetch('/p/' + project + '/wiki/' + slug + '/' + endpoint + '/' + threadId + '/resolve', {
+        const response = await fetch('/' + project + '/' + slug + '/' + endpoint + '/' + threadId + '/resolve', {
           method: 'POST',
           body: formData,
         });
@@ -404,7 +404,7 @@ export function initPage(): void {
             formData.append('suffix', context.suffix);
 
             window.setCostLoading?.(true);
-            const response = await fetch('/p/' + project + '/wiki/' + slug + '/inline', {
+            const response = await fetch('/' + project + '/' + slug + '/inline', {
               method: 'POST',
               body: formData,
             });
@@ -447,7 +447,7 @@ export function initPage(): void {
           formData.append('text', context.text);
 
           window.setCostLoading?.(true);
-          const response = await fetch('/p/' + project + '/wiki/' + slug + '/inline-edit', {
+          const response = await fetch('/' + project + '/' + slug + '/inline-edit', {
             method: 'POST',
             body: formData,
           });
@@ -584,7 +584,7 @@ export function initPage(): void {
         formData.append('message', message);
 
         window.setCostLoading?.(true);
-        const response = await fetch('/p/' + project + '/wiki/' + slug + '/inline/' + commentId + '/reply', {
+        const response = await fetch('/' + project + '/' + slug + '/inline/' + commentId + '/reply', {
           method: 'POST',
           body: formData,
         });
@@ -659,8 +659,8 @@ export function initPage(): void {
   async function loadVersionHistory(): Promise<void> {
     try {
       const url = showAllVersions
-        ? '/p/' + project + '/wiki/' + slug + '/history?all=true'
-        : '/p/' + project + '/wiki/' + slug + '/history';
+        ? '/' + project + '/' + slug + '/history?all=true'
+        : '/' + project + '/' + slug + '/history';
       const response = await fetch(url);
       const data = await response.json();
 
@@ -713,7 +713,7 @@ export function initPage(): void {
 
   async function previewVersion(versionNum: number): Promise<void> {
     try {
-      const response = await fetch('/p/' + project + '/wiki/' + slug + '/version/' + versionNum);
+      const response = await fetch('/' + project + '/' + slug + '/version/' + versionNum);
       const data = await response.json();
 
       previewVersionNum.textContent = String(versionNum);
@@ -739,7 +739,7 @@ export function initPage(): void {
       const formData = new FormData();
       formData.append('version', String(versionNum));
 
-      const response = await fetch('/p/' + project + '/wiki/' + slug + '/revert', {
+      const response = await fetch('/' + project + '/' + slug + '/revert', {
         method: 'POST',
         body: formData,
       });
@@ -801,13 +801,13 @@ export function initPage(): void {
       deleteBtn.textContent = 'Deleting...';
 
       try {
-        const response = await fetch('/p/' + project + '/wiki/' + slug + '/delete', {
+        const response = await fetch('/' + project + '/' + slug + '/delete', {
           method: 'POST',
         });
 
         const result = await response.json();
         if (result.success) {
-          window.location.href = '/p/' + project;
+          window.location.href = '/' + project;
         } else {
           alert('Error: ' + (result.error || 'Failed to delete page'));
           deleteBtn.disabled = false;
