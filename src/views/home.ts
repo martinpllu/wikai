@@ -26,8 +26,9 @@ export function homePage(pages: PageInfo[], project: string = DEFAULT_PROJECT, p
     </section>
 
     <section class="streaming-section" id="streaming-section" style="display: none;">
-      <div class="streaming-header">
-        <div class="spinner"></div>
+      <div class="streaming-title-row">
+        <div class="spinner" id="streaming-spinner"></div>
+        <h1 class="streaming-title" id="streaming-title"></h1>
       </div>
       <div class="streaming-content" id="streaming-content"></div>
     </section>

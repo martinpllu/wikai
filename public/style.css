@@ -701,11 +701,11 @@ body[data-sidebar-open="false"] .sidebar-expand-btn {
   background: var(--color-bg);
 }
 
-.main-wrapper:has(.generate-section) {
+.main-wrapper:has(.generate-section:not([style*="display: none"])) {
   justify-content: center;
 }
 
-.main-wrapper:has(.generate-section) main {
+.main-wrapper:has(.generate-section:not([style*="display: none"])) main {
   flex: none;
 }
 

@@ -8,6 +8,8 @@ export function initHome(): void {
   const generateSection = getElement<HTMLElement>('generate-section');
   const streamingSection = getElement<HTMLElement>('streaming-section');
   const streamingContent = getElement<HTMLElement>('streaming-content');
+  const streamingTitle = getElement<HTMLElement>('streaming-title');
+  const streamingSpinner = getElement<HTMLElement>('streaming-spinner');
   const topicInput = getElement<HTMLTextAreaElement>('topic');
   const currentProject = form.dataset.project;
 
@@ -28,10 +30,12 @@ export function initHome(): void {
     const topic = topicInput.value.trim();
     if (!topic) return;
 
-    // Show streaming UI
+    // Show streaming UI with placeholder title (first line of topic, before any newline)
+    const placeholderTitle = topic.split('\n')[0];
     generateSection.style.display = 'none';
     streamingSection.style.display = 'block';
     streamingContent.innerHTML = '';
+    if (streamingTitle) streamingTitle.textContent = placeholderTitle;
 
     // Import streaming-markdown from CDN
     // @ts-ignore - External CDN module
@@ -68,9 +72,19 @@ export function initHome(): void {
 
               if (data.content) {
                 smd.parser_write(parser, data.content);
+
+                // Keep updating title from streamed H1 as it grows
+                if (streamingTitle) {
+                  const streamedH1 = streamingContent.querySelector('h1');
+                  if (streamedH1) {
+                    streamingTitle.textContent = streamedH1.textContent;
+                    streamedH1.style.display = 'none';
+                  }
+                }
               }
               if (data.url) {
-                // Complete - redirect
+                // Complete - hide spinner and redirect
+                if (streamingSpinner) streamingSpinner.style.display = 'none';
                 window.setCostLoading?.(false);
                 smd.parser_end(parser);
                 setTimeout(() => {
