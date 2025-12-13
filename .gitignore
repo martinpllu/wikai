@@ -5,3 +5,5 @@ dist/
 .claude/
 public/js/
 test-results/
+videos/
+demo.mp4

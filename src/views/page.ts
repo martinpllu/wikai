@@ -231,8 +231,18 @@ export function errorPage(message: string): string {
   `);
 }
 
-export function generatePageView(topic: string, project: string = DEFAULT_PROJECT): string {
-  return layout(`Generating: ${topic}`, `
+export function generatePageView(
+  topic: string,
+  project: string = DEFAULT_PROJECT,
+  pages: PageInfo[] = [],
+  projects: string[] = [DEFAULT_PROJECT]
+): string {
+  return layout({
+    title: `Generating: ${topic}`,
+    pages,
+    project,
+    projects,
+    content: `
     <section class="streaming-section" id="streaming-section" data-topic="${topic}" data-project="${project}">
       <div class="streaming-title-row">
         <div class="spinner" id="streaming-spinner"></div>
@@ -240,5 +250,6 @@ export function generatePageView(topic: string, project: string = DEFAULT_PROJEC
       </div>
       <div class="streaming-content" id="streaming-content"></div>
     </section>
-  `);
+  `,
+  });
 }

@@ -276,7 +276,11 @@ app.post('/:project/generate', async (c) => {
 app.get('/:project/generate-page/:topic', async (c) => {
   const project = c.req.param('project');
   const topic = decodeURIComponent(c.req.param('topic'));
-  return c.html(generatePageView(topic, project));
+  const [pages, projects] = await Promise.all([
+    listPages(project),
+    listProjects(),
+  ]);
+  return c.html(generatePageView(topic, project, pages, projects));
 });
 
 // View wiki page
