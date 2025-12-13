@@ -27,7 +27,7 @@ data/
 
 ## Development
 
-The dev server runs with hot-reload. Check `.env` for the PORT (default: 3000).
+The dev server runs with hot-reload. Check `.env` for the PORT (default: 3171).
 
 **DO NOT restart the server after making changes.** The `pnpm dev` command uses:
 - `tsx watch` for server-side TypeScript (auto-restarts on changes to `src/`)

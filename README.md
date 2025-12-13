@@ -19,7 +19,7 @@ A personal AI-powered wiki that generates knowledge pages on any topic using Cla
    npm run dev
    ```
 
-4. Open http://localhost:3000
+4. Open http://localhost:3171
 
 ## Usage
 
@@ -36,9 +36,7 @@ Set in `.env` or as environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENROUTER_API_KEY` | (required) | Your OpenRouter API key |
-| `MODEL` | `anthropic/claude-sonnet-4` | Model to use |
-| `PORT` | `3000` | Server port |
+| `PORT` | `3171` | Server port |
 | `DATA_DIR` | `data` | Directory for markdown files |
 
 ## Tech Stack

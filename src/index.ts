@@ -37,9 +37,8 @@ import {
   PageVersion,
   readSettings,
   writeSettings,
-  getEffectiveModel,
 } from './wiki.js';
-import { invokeModel, invokeModelStreaming, type RequestContext } from './openrouter.js';
+import { invokeModel, invokeModelStreaming, type RequestContext } from './providers/index.js';
 import { getCostSummary } from './costs.js';
 import { homePage } from './views/home.js';
 import { wikiPage, errorPage, generatePageView } from './views/page.js';
@@ -79,7 +78,23 @@ app.post('/_settings', async (c) => {
     // Checkbox is present in body only if checked
     const searchEnabled = body['searchEnabled'] === 'on';
 
-    await writeSettings({ systemPrompt, model, searchEnabled });
+    // Provider settings
+    const provider = (typeof body['provider'] === 'string' ? body['provider'] : 'openrouter') as 'openrouter' | 'openai' | 'anthropic';
+    const openrouterApiKey = typeof body['openrouterApiKey'] === 'string' ? body['openrouterApiKey'] : '';
+    const openaiApiKey = typeof body['openaiApiKey'] === 'string' ? body['openaiApiKey'] : '';
+    const anthropicApiKey = typeof body['anthropicApiKey'] === 'string' ? body['anthropicApiKey'] : '';
+
+    await writeSettings({
+      systemPrompt,
+      model,
+      searchEnabled,
+      provider,
+      providerApiKeys: {
+        openrouter: openrouterApiKey,
+        openai: openaiApiKey,
+        anthropic: anthropicApiKey,
+      },
+    });
     return c.json({ success: true });
   } catch (error) {
     console.error('Settings error:', error);
@@ -192,8 +207,6 @@ app.post('/:project/generate', async (c) => {
 
   // Get user settings
   const settings = await readSettings();
-  const systemPrompt = settings.systemPrompt || undefined;
-  const model = getEffectiveModel(settings);
 
   return streamSSE(c, async (stream) => {
     try {
@@ -204,7 +217,7 @@ app.post('/:project/generate', async (c) => {
       });
 
       // Stream content chunks
-      const generator = generatePageStreaming(title, instructions, project, systemPrompt, model);
+      const generator = generatePageStreaming(title, instructions, project, settings);
       let result = await generator.next();
 
       while (!result.done) {
@@ -290,9 +303,7 @@ app.post('/:project/:slug/chat', async (c) => {
     const topic = pageData.title || unslugify(slug);
     const userMessage = message.trim();
     const settings = await readSettings();
-    const systemPrompt = settings.systemPrompt || undefined;
-    const model = getEffectiveModel(settings);
-    const { content } = await generatePage(topic, userMessage, project, systemPrompt, model);
+    const { content } = await generatePage(topic, userMessage, project, settings);
 
     // Add version for the edit
     await addVersion(slug, content, userMessage, 'edit', project);
@@ -336,15 +347,13 @@ app.post('/:project/:slug/comment', async (c) => {
 
     // Generate AI response
     const settings = await readSettings();
-    const systemPrompt = settings.systemPrompt || undefined;
-    const model = getEffectiveModel(settings);
     const prompt = buildCommentPrompt(pageContent, null, message.trim());
     const context: RequestContext = {
       action: 'comment',
       pageName: unslugify(slug),
       promptExcerpt: message.trim().slice(0, 50),
     };
-    const aiResponse = await invokeModel(prompt, systemPrompt, model, context);
+    const aiResponse = await invokeModel(prompt, settings.systemPrompt || undefined, settings, context);
 
     // Save comment with AI response
     const thread = await addPageComment(slug, message.trim(), aiResponse, project);
@@ -386,15 +395,13 @@ app.post('/:project/:slug/comment/:id/reply', async (c) => {
         content: msg.content,
       }));
       const settings = await readSettings();
-      const systemPrompt = settings.systemPrompt || undefined;
-      const model = getEffectiveModel(settings);
       const prompt = buildCommentPrompt(pageContent, null, message.trim(), conversationHistory);
       const context: RequestContext = {
         action: 'reply',
         pageName: unslugify(slug),
         promptExcerpt: message.trim().slice(0, 50),
       };
-      const aiResponse = await invokeModel(prompt, systemPrompt, model, context);
+      const aiResponse = await invokeModel(prompt, settings.systemPrompt || undefined, settings, context);
       thread = await addReplyToPageComment(slug, threadId, aiResponse, 'assistant', project);
     }
 
@@ -466,15 +473,13 @@ app.post('/:project/:slug/inline', async (c) => {
 
     // Generate AI response
     const settings = await readSettings();
-    const systemPrompt = settings.systemPrompt || undefined;
-    const model = getEffectiveModel(settings);
     const prompt = buildCommentPrompt(pageContent, text, message.trim());
     const context: RequestContext = {
       action: 'inline-comment',
       pageName: unslugify(slug),
       promptExcerpt: message.trim().slice(0, 50),
     };
-    const aiResponse = await invokeModel(prompt, systemPrompt, model, context);
+    const aiResponse = await invokeModel(prompt, settings.systemPrompt || undefined, settings, context);
 
     // Save inline comment with AI response
     const thread = await addInlineComment(slug, anchor, message.trim(), aiResponse, project);
@@ -517,15 +522,13 @@ app.post('/:project/:slug/inline/:id/reply', async (c) => {
         content: msg.content,
       }));
       const settings = await readSettings();
-      const systemPrompt = settings.systemPrompt || undefined;
-      const model = getEffectiveModel(settings);
       const prompt = buildCommentPrompt(pageContent, selectedText, message.trim(), conversationHistory);
       const context: RequestContext = {
         action: 'inline-reply',
         pageName: unslugify(slug),
         promptExcerpt: message.trim().slice(0, 50),
       };
-      const aiResponse = await invokeModel(prompt, systemPrompt, model, context);
+      const aiResponse = await invokeModel(prompt, settings.systemPrompt || undefined, settings, context);
       thread = await addReplyToInlineComment(slug, threadId, aiResponse, 'assistant', project);
     }
 
@@ -585,8 +588,6 @@ app.post('/:project/:slug/inline-edit', async (c) => {
   }
 
   const settings = await readSettings();
-  const systemPrompt = settings.systemPrompt || undefined;
-  const model = getEffectiveModel(settings);
 
   return streamSSE(c, async (stream) => {
     try {
@@ -598,7 +599,7 @@ app.post('/:project/:slug/inline-edit', async (c) => {
       };
 
       let updatedContent = '';
-      for await (const chunk of invokeModelStreaming(prompt, systemPrompt, model, context)) {
+      for await (const chunk of invokeModelStreaming(prompt, settings.systemPrompt || undefined, settings, context)) {
         updatedContent += chunk;
         await stream.writeSSE({
           event: 'chunk',

@@ -2,7 +2,13 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { marked } from 'marked';
 import { config, buildPrompt } from './config.js';
-import { invokeModel, invokeModelStreaming, type RequestContext } from './openrouter.js';
+import {
+  invokeModel,
+  invokeModelStreaming,
+  getEffectiveModel as getProviderEffectiveModel,
+  type ProviderId,
+  type RequestContext,
+} from './providers/index.js';
 
 // ============================================
 // User Settings
@@ -12,23 +18,23 @@ export interface UserSettings {
   systemPrompt: string;
   model: string;
   searchEnabled: boolean;
+  provider: ProviderId;
+  providerApiKeys: Partial<Record<ProviderId, string>>;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
   systemPrompt: '',
   model: '',
   searchEnabled: true,
+  provider: 'openrouter',
+  providerApiKeys: {},
 };
 
 /**
- * Get the effective model ID, appending :online if search is enabled
+ * Get the effective model ID with web search applied if enabled
  */
 export function getEffectiveModel(settings: UserSettings): string {
-  const model = settings.model || config.model;
-  if (settings.searchEnabled && !model.endsWith(':online')) {
-    return `${model}:online`;
-  }
-  return model;
+  return getProviderEffectiveModel(settings);
 }
 
 function getSettingsPath(): string {
@@ -363,8 +369,7 @@ export async function generatePage(
   topic: string,
   userMessage?: string,
   project: string = DEFAULT_PROJECT,
-  systemPrompt?: string,
-  model?: string
+  settings?: UserSettings
 ): Promise<{ slug: string; content: string }> {
   const slug = slugify(topic);
   const existingContent = await readPage(slug, project);
@@ -377,7 +382,7 @@ export async function generatePage(
     promptExcerpt: userMessage ? userMessage.slice(0, 50) : `Generate: ${topic}`.slice(0, 50),
   };
 
-  const markdownContent = await invokeModel(prompt, systemPrompt, model, context);
+  const markdownContent = await invokeModel(prompt, settings?.systemPrompt, settings, context);
 
   await writePage(slug, markdownContent, project);
 
@@ -391,8 +396,7 @@ export async function* generatePageStreaming(
   topic: string,
   userMessage?: string,
   project: string = DEFAULT_PROJECT,
-  systemPrompt?: string,
-  model?: string
+  settings?: UserSettings
 ): AsyncGenerator<string, { slug: string; content: string }> {
   const slug = slugify(topic);
   const existingContent = await readPage(slug, project);
@@ -406,7 +410,7 @@ export async function* generatePageStreaming(
   };
 
   let fullContent = '';
-  for await (const chunk of invokeModelStreaming(prompt, systemPrompt, model, context)) {
+  for await (const chunk of invokeModelStreaming(prompt, settings?.systemPrompt, settings, context)) {
     fullContent += chunk;
     yield chunk;
   }

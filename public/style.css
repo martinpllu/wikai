@@ -2178,7 +2178,9 @@ body[data-sidebar-open="false"] main {
 }
 
 .settings-section textarea,
-.settings-section input[type="text"] {
+.settings-section input[type="text"],
+.settings-section input[type="password"],
+.settings-section select {
   width: 100%;
   padding: 1rem;
   border: 1px solid var(--color-border);
@@ -2191,6 +2193,15 @@ body[data-sidebar-open="false"] main {
   box-sizing: border-box;
 }
 
+.settings-section select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M2.5 4.5l3.5 3.5 3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  padding-right: 2.5rem;
+}
+
 .settings-section textarea {
   resize: vertical;
 }
@@ -2201,10 +2212,16 @@ body[data-sidebar-open="false"] main {
 }
 
 .settings-section textarea:focus,
-.settings-section input[type="text"]:focus {
+.settings-section input[type="text"]:focus,
+.settings-section input[type="password"]:focus,
+.settings-section select:focus {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-subtle);
+}
+
+.api-key-field {
+  margin-top: 1rem;
 }
 
 .settings-section h2 {
