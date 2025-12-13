@@ -701,6 +701,14 @@ body[data-sidebar-open="false"] .sidebar-expand-btn {
   background: var(--color-bg);
 }
 
+.main-wrapper:has(.generate-section) {
+  justify-content: center;
+}
+
+.main-wrapper:has(.generate-section) main {
+  flex: none;
+}
+
 main {
   flex: 1;
   max-width: var(--content-max-width);

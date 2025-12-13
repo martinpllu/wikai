@@ -11,7 +11,7 @@ export function homePage(pages: PageInfo[], project: string = DEFAULT_PROJECT, p
     <section class="generate-section" id="generate-section">
       <h1>Create new page</h1>
       <form action="/${project}/generate" method="POST" class="generate-form" id="generate-form" data-project="${project}">
-        <label for="topic">What would you like to know about?</label>
+        <label for="topic">What would you like to delve into?</label>
         <textarea
           id="topic"
           name="topic"
