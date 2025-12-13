@@ -85,18 +85,20 @@ if (isWatch) {
               const content = fs.readFileSync(indexPath);
               const hash = crypto.createHash('md5').update(content).digest('hex').slice(0, 8);
               const hashedName = `bundle.${hash}.js`;
+              const hashedPath = path.join(outdir, hashedName);
 
-              // Remove old bundles
-              const files = fs.readdirSync(outdir);
-              for (const file of files) {
-                if (file.startsWith('bundle.') && file.endsWith('.js')) {
-                  fs.unlinkSync(path.join(outdir, file));
-                }
+              // Rename to hashed name first
+              fs.renameSync(indexPath, hashedPath);
+              if (fs.existsSync(indexPath + '.map')) {
+                fs.renameSync(indexPath + '.map', hashedPath + '.map');
               }
 
-              fs.renameSync(indexPath, path.join(outdir, hashedName));
-              if (fs.existsSync(indexPath + '.map')) {
-                fs.renameSync(indexPath + '.map', path.join(outdir, hashedName + '.map'));
+              // Remove old bundles (excluding the one we just created)
+              const files = fs.readdirSync(outdir);
+              for (const file of files) {
+                if (file.startsWith('bundle.') && file.endsWith('.js') && file !== hashedName) {
+                  fs.unlinkSync(path.join(outdir, file));
+                }
               }
 
               const manifest = { bundle: `/js/${hashedName}` };

@@ -6,6 +6,8 @@ export async function initGeneratePage(): Promise<void> {
   if (!streamingSection || !streamingSection.dataset.topic) return; // Not on generate page
 
   const streamingContent = getElement<HTMLElement>('streaming-content');
+  const streamingTitle = getElement<HTMLElement>('streaming-title');
+  const streamingSpinner = getElement<HTMLElement>('streaming-spinner');
   const topic = streamingSection.dataset.topic;
   const project = streamingSection.dataset.project;
 
@@ -46,9 +48,19 @@ export async function initGeneratePage(): Promise<void> {
 
             if (data.content) {
               smd.parser_write(parser, data.content);
+
+              // Keep updating title from streamed H1 as it grows
+              if (streamingTitle) {
+                const streamedH1 = streamingContent.querySelector('h1');
+                if (streamedH1) {
+                  streamingTitle.textContent = streamedH1.textContent;
+                  streamedH1.style.display = 'none';
+                }
+              }
             }
             if (data.url) {
-              // Complete - redirect (replace so generate page isn't in history)
+              // Complete - hide spinner and redirect
+              if (streamingSpinner) streamingSpinner.style.display = 'none';
               window.setCostLoading?.(false);
               smd.parser_end(parser);
               setTimeout(() => {

@@ -32,7 +32,7 @@ The dev server runs with hot-reload. Check `.env` for the PORT (default: 3000).
 **Important**: The server is usually already running. Before starting a new server:
 1. Check if one exists: `curl -s http://localhost:$PORT/ > /dev/null && echo "Running"`
 2. If needed, kill existing: `lsof -ti:$PORT | xargs kill -9`
-3. Start: `pnpm dev`
+3. Start: `pnpm dev` (NOT `pnpm start` - dev watches for client changes)
 
 Code changes auto-reload - no need to restart the server.
 
