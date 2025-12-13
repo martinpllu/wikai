@@ -27,10 +27,14 @@ data/
 
 ## Development
 
-Run the dev server with auto-reload:
-```
-pnpm dev
-```
+The dev server runs with hot-reload. Check `.env` for the PORT (default: 3000).
+
+**Important**: The server is usually already running. Before starting a new server:
+1. Check if one exists: `curl -s http://localhost:$PORT/ > /dev/null && echo "Running"`
+2. If needed, kill existing: `lsof -ti:$PORT | xargs kill -9`
+3. Start: `pnpm dev`
+
+Code changes auto-reload - no need to restart the server.
 
 ## Key Features
 

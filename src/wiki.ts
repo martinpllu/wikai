@@ -297,9 +297,11 @@ export async function listPages(project: string = DEFAULT_PROJECT): Promise<Page
         const slug = f.replace('.md', '');
         const filePath = path.join(projectDir, f);
         const stats = await fs.stat(filePath);
+        // Use saved title if available, otherwise fall back to unslugify
+        const pageData = await readPageData(slug, project);
         return {
           slug,
-          title: unslugify(slug),
+          title: pageData.title || unslugify(slug),
           modifiedAt: stats.mtimeMs,
         };
       })
@@ -412,6 +414,13 @@ export async function* generatePageStreaming(
 
   await writePage(slug, fullContent, project);
 
+  // Save the original title with preserved capitalization for new pages
+  if (!existingContent) {
+    const pageData = await readPageData(slug, project);
+    pageData.title = topic;
+    await writePageData(slug, pageData, project);
+  }
+
   return { slug, content: fullContent };
 }
 
@@ -458,6 +467,7 @@ export interface PageVersion {
 }
 
 export interface PageData {
+  title?: string;              // Original topic name with preserved capitalization
   editHistory: ChatMessage[];
   pageComments: CommentThread[];
   inlineComments: InlineComment[];

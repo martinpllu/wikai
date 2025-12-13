@@ -261,7 +261,8 @@ app.get('/:project/:slug', async (c) => {
     listProjects(),
     readPageData(slug, project),
   ]);
-  const title = unslugify(slug);
+  // Use saved title if available, otherwise fall back to unslugify
+  const title = pageData.title || unslugify(slug);
   return c.html(wikiPage(slug, title, htmlContent, pageData, pages, project, projects));
 });
 
@@ -278,7 +279,9 @@ app.post('/:project/:slug/chat', async (c) => {
       return c.html(errorPage('Please provide a message'), 400);
     }
 
-    const topic = unslugify(slug);
+    // Use saved title if available for better context in prompts
+    const pageData = await readPageData(slug, project);
+    const topic = pageData.title || unslugify(slug);
     const userMessage = message.trim();
     const settings = await readSettings();
     const systemPrompt = settings.systemPrompt || undefined;
@@ -287,9 +290,6 @@ app.post('/:project/:slug/chat', async (c) => {
 
     // Add version for the edit
     await addVersion(slug, content, userMessage, 'edit', project);
-
-    // Append to edit history using new PageData structure (for backward compat)
-    const pageData = await readPageData(slug, project);
     const timestamp = new Date().toISOString();
     pageData.editHistory.push(
       { role: 'user', content: userMessage, timestamp },
