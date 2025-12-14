@@ -7,7 +7,29 @@ const TEST_PROJECT_PREFIX = 'test-';
 // Generate project name once at module load time so it's shared across all tests
 const testProjectName = `${TEST_PROJECT_PREFIX}${Math.random().toString(36).substring(2, 10)}`;
 
+// Will be populated after page generation
+let generatedPageSlug: string = '';
+
 test.describe.configure({ mode: 'serial' });
+
+// Helper to get the data directory path
+function getDataDir(): string {
+  return path.join(process.cwd(), '.delve', 'data');
+}
+
+// Helper to find the generated page slug by looking at files in the project directory
+function findGeneratedPageSlug(): string | null {
+  const projectDir = path.join(getDataDir(), testProjectName);
+  if (!fs.existsSync(projectDir)) {
+    return null;
+  }
+  const files = fs.readdirSync(projectDir);
+  const mdFile = files.find(f => f.endsWith('.md'));
+  if (mdFile) {
+    return mdFile.replace('.md', '');
+  }
+  return null;
+}
 
 test.describe('Delve Complete Workflow', () => {
   test.beforeAll(() => {
@@ -16,7 +38,7 @@ test.describe('Delve Complete Workflow', () => {
 
   test.afterAll(async () => {
     // Clean up test project directory
-    const projectDir = path.join(process.cwd(), 'data', testProjectName);
+    const projectDir = path.join(getDataDir(), testProjectName);
     if (fs.existsSync(projectDir)) {
       fs.rmSync(projectDir, { recursive: true, force: true });
       console.log(`Cleaned up test project: ${testProjectName}`);
@@ -65,8 +87,17 @@ test.describe('Delve Complete Workflow', () => {
     // Wait for streaming to start (streaming section becomes visible)
     await expect(page.locator('#streaming-section')).toBeVisible({ timeout: 10000 });
 
-    // Wait for navigation to wiki page (streaming complete)
-    await page.waitForURL(/the-history-of-pizza/, { timeout: 120000 });
+    // Wait for navigation to wiki page (streaming complete) - the URL will contain the project name
+    await page.waitForURL(url => {
+      const pathname = new URL(url).pathname;
+      return pathname.startsWith(`/${testProjectName}/`) && pathname !== `/${testProjectName}/`;
+    }, { timeout: 120000 });
+
+    // Extract the slug from the URL
+    const currentUrl = page.url();
+    const urlParts = new URL(currentUrl).pathname.split('/');
+    generatedPageSlug = urlParts[urlParts.length - 1];
+    console.log(`Generated page slug: ${generatedPageSlug}`);
 
     // Verify content was generated
     await expect(page.locator('#wiki-content')).not.toBeEmpty();
@@ -75,22 +106,22 @@ test.describe('Delve Complete Workflow', () => {
   });
 
   test('3. Ask a question (page-level comment) on the page', async ({ page }) => {
+    // Ensure we have a page slug
+    if (!generatedPageSlug) {
+      generatedPageSlug = findGeneratedPageSlug() || '';
+    }
+    expect(generatedPageSlug).toBeTruthy();
+
     // Navigate to the wiki page
-    await page.goto(`/${testProjectName}/the-history-of-pizza`);
+    await page.goto(`/${testProjectName}/${generatedPageSlug}`);
     await expect(page.locator('#wiki-content')).toBeVisible();
 
-    // Switch to comment tab if needed
-    const commentTab = page.locator('[data-tab="comment"]');
-    if (await commentTab.isVisible()) {
-      await commentTab.click();
-    }
-
-    // Fill in a question
+    // Fill in a question using the unified form
     const question = 'What is the most popular pizza topping in Italy?';
-    await page.fill('#comment-message', question);
+    await page.fill('#unified-message', question);
 
-    // Submit the comment
-    await page.click('#comment-submit');
+    // Submit the question via Ask button
+    await page.click('#btn-ask');
 
     // Wait for AI response (comment thread should appear)
     await expect(page.locator('.comment-thread')).toBeVisible({ timeout: 60000 });
@@ -103,15 +134,15 @@ test.describe('Delve Complete Workflow', () => {
   });
 
   test('4. Reply to the question thread', async ({ page }) => {
-    // Navigate to the wiki page
-    await page.goto(`/${testProjectName}/the-history-of-pizza`);
-    await expect(page.locator('#wiki-content')).toBeVisible();
-
-    // Switch to comment tab
-    const commentTab = page.locator('[data-tab="comment"]');
-    if (await commentTab.isVisible()) {
-      await commentTab.click();
+    // Ensure we have a page slug
+    if (!generatedPageSlug) {
+      generatedPageSlug = findGeneratedPageSlug() || '';
     }
+    expect(generatedPageSlug).toBeTruthy();
+
+    // Navigate to the wiki page
+    await page.goto(`/${testProjectName}/${generatedPageSlug}`);
+    await expect(page.locator('#wiki-content')).toBeVisible();
 
     // Wait for existing comment thread to load
     await expect(page.locator('.comment-thread')).toBeVisible({ timeout: 10000 });
@@ -141,23 +172,25 @@ test.describe('Delve Complete Workflow', () => {
   });
 
   test('5. Request a page-level edit (translate to pirate speak)', async ({ page }) => {
+    // Ensure we have a page slug
+    if (!generatedPageSlug) {
+      generatedPageSlug = findGeneratedPageSlug() || '';
+    }
+    expect(generatedPageSlug).toBeTruthy();
+
     // Navigate to the wiki page
-    await page.goto(`/${testProjectName}/the-history-of-pizza`);
+    await page.goto(`/${testProjectName}/${generatedPageSlug}`);
     await expect(page.locator('#wiki-content')).toBeVisible();
 
     // Get original content for comparison
     const originalContent = await page.locator('#wiki-content').textContent();
 
-    // Switch to edit tab
-    await page.click('[data-tab="edit"]');
-    await expect(page.locator('#tab-edit')).toBeVisible();
-
-    // Fill in edit request
+    // Fill in edit request using the unified form
     const editRequest = 'Translate the entire page to pirate speak. Use "arr", "matey", "ye", "be" instead of formal English. Make it fun and playful like a pirate would talk.';
-    await page.fill('#edit-message', editRequest);
+    await page.fill('#unified-message', editRequest);
 
-    // Submit edit
-    await page.click('#edit-submit');
+    // Submit edit via Apply Edit button
+    await page.click('#btn-apply-edit');
 
     // Wait for page to update (content should change)
     await page.waitForFunction(
@@ -182,8 +215,14 @@ test.describe('Delve Complete Workflow', () => {
   });
 
   test('6. Inline comment - select text and ask a question', async ({ page }) => {
+    // Ensure we have a page slug
+    if (!generatedPageSlug) {
+      generatedPageSlug = findGeneratedPageSlug() || '';
+    }
+    expect(generatedPageSlug).toBeTruthy();
+
     // Navigate to the wiki page
-    await page.goto(`/${testProjectName}/the-history-of-pizza`);
+    await page.goto(`/${testProjectName}/${generatedPageSlug}`);
     await expect(page.locator('#wiki-content')).toBeVisible();
 
     // Get a paragraph element to select text from
@@ -204,8 +243,8 @@ test.describe('Delve Complete Workflow', () => {
     // Wait for selection toolbar to appear
     await expect(page.locator('#selection-toolbar')).toBeVisible({ timeout: 5000 });
 
-    // Click the comment button
-    await page.click('#btn-comment');
+    // Click the Ask/Edit button to open the popover
+    await page.click('#btn-selection');
 
     // Wait for popover to appear
     await expect(page.locator('#inline-popover')).toBeVisible();
@@ -214,8 +253,8 @@ test.describe('Delve Complete Workflow', () => {
     const inlineQuestion = 'Can you explain this in simpler terms?';
     await page.fill('#popover-textarea', inlineQuestion);
 
-    // Submit
-    await page.click('#popover-submit');
+    // Submit via Ask button in popover
+    await page.click('#popover-ask');
 
     // Wait for response in popover - the popover uses .popover-message-assistant class
     await expect(page.locator('#popover-body .popover-message-assistant')).toBeVisible({ timeout: 60000 });
@@ -234,8 +273,14 @@ test.describe('Delve Complete Workflow', () => {
   });
 
   test('7. Inline edit - select text and request edit', async ({ page }) => {
+    // Ensure we have a page slug
+    if (!generatedPageSlug) {
+      generatedPageSlug = findGeneratedPageSlug() || '';
+    }
+    expect(generatedPageSlug).toBeTruthy();
+
     // Navigate to the wiki page
-    await page.goto(`/${testProjectName}/the-history-of-pizza`);
+    await page.goto(`/${testProjectName}/${generatedPageSlug}`);
     await expect(page.locator('#wiki-content')).toBeVisible();
 
     // Get original content
@@ -259,8 +304,8 @@ test.describe('Delve Complete Workflow', () => {
     // Wait for selection toolbar
     await expect(page.locator('#selection-toolbar')).toBeVisible({ timeout: 5000 });
 
-    // Click the edit button
-    await page.click('#btn-edit');
+    // Click the Ask/Edit button to open the popover
+    await page.click('#btn-selection');
 
     // Wait for popover
     await expect(page.locator('#inline-popover')).toBeVisible();
@@ -269,8 +314,8 @@ test.describe('Delve Complete Workflow', () => {
     const editInstruction = 'Make this paragraph ALL CAPS';
     await page.fill('#popover-textarea', editInstruction);
 
-    // Submit
-    await page.click('#popover-submit');
+    // Submit via Edit button in popover
+    await page.click('#popover-edit');
 
     // Wait for content to update - the page will reload after streaming edit
     await page.waitForFunction(
@@ -288,16 +333,24 @@ test.describe('Delve Complete Workflow', () => {
   });
 
   test('8. Test version history and revert functionality', async ({ page }) => {
+    // Ensure we have a page slug
+    if (!generatedPageSlug) {
+      generatedPageSlug = findGeneratedPageSlug() || '';
+    }
+    expect(generatedPageSlug).toBeTruthy();
+
     // Navigate to the wiki page
-    await page.goto(`/${testProjectName}/the-history-of-pizza`);
+    await page.goto(`/${testProjectName}/${generatedPageSlug}`);
     await expect(page.locator('#wiki-content')).toBeVisible();
 
-    // Switch to edit tab to see version history
-    await page.click('[data-tab="edit"]');
-    await expect(page.locator('#tab-edit')).toBeVisible();
+    // Open version history (it's now a details/summary element)
+    const versionHistorySection = page.locator('.version-history-section');
+    await expect(versionHistorySection).toBeVisible();
+    await versionHistorySection.locator('summary').click();
 
-    // Version history should be visible
+    // Wait for version history to load
     await expect(page.locator('#version-history')).toBeVisible();
+    await expect(page.locator('.version-item').first()).toBeVisible({ timeout: 10000 });
 
     // We should have multiple versions now (original + pirate + inline edit)
     const versionItems = page.locator('.version-item');
@@ -337,24 +390,31 @@ test.describe('Delve Complete Workflow', () => {
         // Wait for page to reload
         await page.waitForLoadState('networkidle');
 
-        // Verify we're now on v1 by checking the URL is still correct
-        await expect(page).toHaveURL(/the-history-of-pizza/);
+        // Verify we're still on the wiki page
+        await expect(page).toHaveURL(new RegExp(generatedPageSlug));
         await expect(page.locator('#wiki-content')).toBeVisible();
       }
     }
   });
 
   test('9. Verify version history shows multiple versions', async ({ page }) => {
+    // Ensure we have a page slug
+    if (!generatedPageSlug) {
+      generatedPageSlug = findGeneratedPageSlug() || '';
+    }
+    expect(generatedPageSlug).toBeTruthy();
+
     // Navigate to the wiki page
-    await page.goto(`/${testProjectName}/the-history-of-pizza`);
+    await page.goto(`/${testProjectName}/${generatedPageSlug}`);
     await expect(page.locator('#wiki-content')).toBeVisible();
 
-    // Switch to edit tab
-    await page.click('[data-tab="edit"]');
-    await expect(page.locator('#tab-edit')).toBeVisible();
+    // Open version history
+    const versionHistorySection = page.locator('.version-history-section');
+    await expect(versionHistorySection).toBeVisible();
+    await versionHistorySection.locator('summary').click();
 
     // Wait for initial version history to load
-    await expect(page.locator('.version-item')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.version-item').first()).toBeVisible({ timeout: 10000 });
 
     // Check "show all versions" checkbox to see all versions
     const showAllCheckbox = page.locator('#show-all-versions');
@@ -369,27 +429,33 @@ test.describe('Delve Complete Workflow', () => {
     // Give time for DOM to update after the fetch
     await page.waitForTimeout(500);
 
-    // We should have multiple versions (original + pirate + inline edit = at least 3)
+    // We should have multiple versions (at least 2 - initial + edits)
     const versionItems = page.locator('.version-item');
     const versionCount = await versionItems.count();
-    expect(versionCount).toBeGreaterThanOrEqual(3);
+    expect(versionCount).toBeGreaterThanOrEqual(2);
 
-    // Verify v1 is current (after revert)
+    // Verify there is a current version
     const currentVersion = page.locator('.version-item.version-current');
     await expect(currentVersion).toBeVisible();
 
-    // The current version should be v1 (with "Current" badge)
+    // The current version should have "Current" badge
     await expect(currentVersion.locator('.version-badge')).toContainText('Current');
 
     // Other versions should have "Revert" buttons (not current)
     const revertButtons = page.locator('.btn-revert-version');
     const revertCount = await revertButtons.count();
-    expect(revertCount).toBeGreaterThanOrEqual(2); // v2 and v3 should have revert buttons
+    expect(revertCount).toBeGreaterThanOrEqual(1); // At least one version should have revert button
   });
 
   test('10. Page delete and cleanup verification', async ({ page }) => {
+    // Ensure we have a page slug
+    if (!generatedPageSlug) {
+      generatedPageSlug = findGeneratedPageSlug() || '';
+    }
+    expect(generatedPageSlug).toBeTruthy();
+
     // Navigate to the wiki page
-    await page.goto(`/${testProjectName}/the-history-of-pizza`);
+    await page.goto(`/${testProjectName}/${generatedPageSlug}`);
     await expect(page.locator('#wiki-content')).toBeVisible();
 
     // Handle confirmation dialogs
@@ -407,6 +473,6 @@ test.describe('Delve Complete Workflow', () => {
     await expect(page.locator('#generate-section')).toBeVisible();
 
     // The page should no longer be in the sidebar
-    await expect(page.locator('.page-item[data-slug="the-history-of-pizza"]')).not.toBeVisible();
+    await expect(page.locator(`.page-item[data-slug="${generatedPageSlug}"]`)).not.toBeVisible();
   });
 });

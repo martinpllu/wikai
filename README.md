@@ -90,6 +90,20 @@ No database required. Back up by copying the `.delve/` directory.
 - [streaming-markdown](https://github.com/thetarnav/streaming-markdown) - Progressive rendering
 - [marked](https://marked.js.org) - Markdown to HTML
 
+## Testing
+
+End-to-end tests use [Playwright](https://playwright.dev) and cover the complete workflow: project creation, page generation, commenting, editing, version history, and page deletion.
+
+```bash
+# Run tests (starts dev server automatically)
+npm test
+
+# Run tests with UI for debugging
+npm run test:ui
+```
+
+Tests create isolated test projects with random names and clean up after themselves. The test suite requires a valid API key configured in settings to generate AI responses.
+
 ## License
 
 MIT
