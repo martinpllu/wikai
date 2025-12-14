@@ -287,7 +287,7 @@ export class AnthropicProvider extends BaseProvider {
       streamed,
       action: context?.action,
       pageName: context?.pageName,
-      promptExcerpt: context?.promptExcerpt,
+      prompt: context?.prompt,
     };
 
     addCostRecord(record);

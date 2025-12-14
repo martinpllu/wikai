@@ -77,11 +77,11 @@ Environment variables can be set via a `.env` file in the project root or passed
 
 ## Data Storage
 
-Pages are stored as plain files under `data/{project}/`:
+Pages are stored as plain files under `.delve/data/{project}/`:
 - `{slug}.md` — Page content (markdown)
 - `{slug}.json` — Metadata (comments, versions, history)
 
-No database required. Back up by copying the `data/` directory.
+No database required. Back up by copying the `.delve/` directory.
 
 ## Tech Stack
 

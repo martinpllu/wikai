@@ -416,7 +416,7 @@ export async function generatePage(
   const context: RequestContext = {
     action: existingContent ? 'edit' : 'generate',
     pageName: topic,
-    promptExcerpt: userMessage ? userMessage.slice(0, 50) : `Generate: ${topic}`.slice(0, 50),
+    prompt: userMessage || `Generate: ${topic}`,
   };
 
   const markdownContent = await invokeModel(prompt, settings?.systemPrompt, settings, context);
@@ -451,7 +451,7 @@ export async function* generatePageStreaming(
   const context: RequestContext = {
     action: 'generate',
     pageName: userRequest,
-    promptExcerpt: userMessage ? userMessage.slice(0, 50) : `Generate: ${userRequest}`.slice(0, 50),
+    prompt: userMessage || `Generate: ${userRequest}`,
   };
 
   let fullContent = '';

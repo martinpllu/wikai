@@ -383,7 +383,7 @@ app.post('/:project/:slug/comment', async (c) => {
     const context: RequestContext = {
       action: 'comment',
       pageName: unslugify(slug),
-      promptExcerpt: message.trim().slice(0, 50),
+      prompt: message.trim(),
     };
     const aiResponse = await invokeModel(prompt, settings.systemPrompt || undefined, settings, context);
 
@@ -431,7 +431,7 @@ app.post('/:project/:slug/comment/:id/reply', async (c) => {
       const context: RequestContext = {
         action: 'reply',
         pageName: unslugify(slug),
-        promptExcerpt: message.trim().slice(0, 50),
+        prompt: message.trim(),
       };
       const aiResponse = await invokeModel(prompt, settings.systemPrompt || undefined, settings, context);
       thread = await addReplyToPageComment(slug, threadId, aiResponse, 'assistant', project);
@@ -509,7 +509,7 @@ app.post('/:project/:slug/inline', async (c) => {
     const context: RequestContext = {
       action: 'inline-comment',
       pageName: unslugify(slug),
-      promptExcerpt: message.trim().slice(0, 50),
+      prompt: message.trim(),
     };
     const aiResponse = await invokeModel(prompt, settings.systemPrompt || undefined, settings, context);
 
@@ -558,7 +558,7 @@ app.post('/:project/:slug/inline/:id/reply', async (c) => {
       const context: RequestContext = {
         action: 'inline-reply',
         pageName: unslugify(slug),
-        promptExcerpt: message.trim().slice(0, 50),
+        prompt: message.trim(),
       };
       const aiResponse = await invokeModel(prompt, settings.systemPrompt || undefined, settings, context);
       thread = await addReplyToInlineComment(slug, threadId, aiResponse, 'assistant', project);
@@ -627,7 +627,7 @@ app.post('/:project/:slug/inline-edit', async (c) => {
       const context: RequestContext = {
         action: 'inline-edit',
         pageName: unslugify(slug),
-        promptExcerpt: instruction.trim().slice(0, 50),
+        prompt: instruction.trim(),
       };
 
       let updatedContent = '';

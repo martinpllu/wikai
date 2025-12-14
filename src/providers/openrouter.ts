@@ -255,7 +255,7 @@ export class OpenRouterProvider extends BaseProvider {
           cacheDiscount: data.data.cache_discount,
           action: context?.action,
           pageName: context?.pageName,
-          promptExcerpt: context?.promptExcerpt,
+          prompt: context?.prompt,
         };
 
         addCostRecord(record);

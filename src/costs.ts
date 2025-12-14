@@ -17,7 +17,7 @@ export interface CostRecord {
   // Context about what triggered this request
   action?: string;  // e.g., "generate", "edit", "comment", "reply"
   pageName?: string;  // The page this request was for
-  promptExcerpt?: string;  // First ~50 chars of the user's input
+  prompt?: string;  // The full user-provided prompt
 }
 
 export interface CostSummary {
@@ -28,18 +28,19 @@ export interface CostSummary {
   recentRequests: CostRecord[];
 }
 
-const COSTS_FILE = 'costs.json';
+const REQUESTS_FILE = 'requests.jsonl';
 
-function getCostsFilePath(): string {
-  return path.join(config.configDir, COSTS_FILE);
+function getRequestsFilePath(): string {
+  return path.join(config.configDir, REQUESTS_FILE);
 }
 
 export function loadCosts(): CostRecord[] {
-  const filePath = getCostsFilePath();
+  const filePath = getRequestsFilePath();
   try {
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, 'utf-8');
-      return JSON.parse(data);
+      const lines = data.trim().split('\n').filter(line => line.length > 0);
+      return lines.map(line => JSON.parse(line));
     }
   } catch (error) {
     console.error('Error loading costs:', error);
@@ -47,38 +48,53 @@ export function loadCosts(): CostRecord[] {
   return [];
 }
 
-export function saveCosts(costs: CostRecord[]): void {
-  const filePath = getCostsFilePath();
+export function addCostRecord(record: CostRecord): void {
+  const filePath = getRequestsFilePath();
 
   // Ensure config directory exists
   if (!fs.existsSync(config.configDir)) {
     fs.mkdirSync(config.configDir, { recursive: true });
   }
 
-  fs.writeFileSync(filePath, JSON.stringify(costs, null, 2));
-}
-
-export function addCostRecord(record: CostRecord): void {
-  const costs = loadCosts();
-  costs.push(record);
-  saveCosts(costs);
+  // Append a single line to the file
+  fs.appendFileSync(filePath, JSON.stringify(record) + '\n');
 }
 
 export function getCostSummary(limit: number = 10): CostSummary {
-  const costs = loadCosts();
+  const filePath = getRequestsFilePath();
 
-  const totalCost = costs.reduce((sum, r) => sum + r.totalCost, 0);
-  const totalTokensPrompt = costs.reduce((sum, r) => sum + r.nativeTokensPrompt, 0);
-  const totalTokensCompletion = costs.reduce((sum, r) => sum + r.nativeTokensCompletion, 0);
+  let costs: CostRecord[] = [];
+  let totalCost = 0;
+  let totalRequests = 0;
+  let totalTokensPrompt = 0;
+  let totalTokensCompletion = 0;
 
-  // Get most recent requests
-  const recentRequests = costs.slice(-limit).reverse();
+  try {
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8');
+      const lines = data.trim().split('\n').filter(line => line.length > 0);
+
+      for (const line of lines) {
+        const record: CostRecord = JSON.parse(line);
+        totalCost += record.totalCost;
+        totalTokensPrompt += record.nativeTokensPrompt;
+        totalTokensCompletion += record.nativeTokensCompletion;
+        totalRequests++;
+      }
+
+      // Get last N records for recent requests
+      const recentLines = lines.slice(-limit);
+      costs = recentLines.map(line => JSON.parse(line)).reverse();
+    }
+  } catch (error) {
+    console.error('Error loading cost summary:', error);
+  }
 
   return {
     totalCost,
-    totalRequests: costs.length,
+    totalRequests,
     totalTokensPrompt,
     totalTokensCompletion,
-    recentRequests,
+    recentRequests: costs,
   };
 }

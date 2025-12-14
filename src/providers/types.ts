@@ -31,5 +31,5 @@ export interface ProviderConfig {
 export interface RequestContext {
   action: string;  // e.g., "generate", "edit", "comment", "reply"
   pageName?: string;
-  promptExcerpt?: string;
+  prompt?: string;  // The full user-provided prompt
 }
