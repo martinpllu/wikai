@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
-    "hono": "^4.6.12",
+    "hono": "^4.11.0",
     "marked": "^15.0.4",
     "streaming-markdown": "^0.2.15"
   },
@@ -21,8 +21,8 @@
     "@playwright/test": "^1.57.0",
     "@types/node": "^22.10.1",
     "concurrently": "^9.1.0",
-    "esbuild": "^0.24.0",
-    "tsx": "^4.19.2",
+    "esbuild": "^0.27.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.2"
   }
 }
