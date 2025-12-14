@@ -116,16 +116,34 @@ export function unslugify(slug: string): string {
 
 export const DEFAULT_PROJECT = 'main';
 
+/**
+ * Validate that a resolved path is contained within the data directory.
+ * Throws an error if the path escapes the data directory (path traversal attack).
+ */
+function assertPathContained(resolvedPath: string): void {
+  const dataDir = path.resolve(config.dataDir);
+  const normalized = path.resolve(resolvedPath);
+  if (!normalized.startsWith(dataDir + path.sep) && normalized !== dataDir) {
+    throw new Error('Invalid path: path traversal detected');
+  }
+}
+
 export function getProjectDir(project: string): string {
-  return path.join(config.dataDir, project);
+  const dir = path.join(config.dataDir, project);
+  assertPathContained(dir);
+  return dir;
 }
 
 export function getPagePath(slug: string, project: string = DEFAULT_PROJECT): string {
-  return path.join(getProjectDir(project), `${slug}.md`);
+  const pagePath = path.join(getProjectDir(project), `${slug}.md`);
+  assertPathContained(pagePath);
+  return pagePath;
 }
 
 export function getChatHistoryPath(slug: string, project: string = DEFAULT_PROJECT): string {
-  return path.join(getProjectDir(project), `${slug}.json`);
+  const historyPath = path.join(getProjectDir(project), `${slug}.json`);
+  assertPathContained(historyPath);
+  return historyPath;
 }
 
 export async function listProjects(): Promise<string[]> {
