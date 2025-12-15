@@ -6,6 +6,11 @@ export const config = {
   configDir: '.delve',  // App config (settings, costs) - should be gitignored
   dataDir: process.env.DATA_DIR ?? '.delve/data',  // Wiki content
   port: parseInt(process.env.PORT ?? '3171'),
+  ssl: {
+    enabled: process.env.SSL_ENABLED === 'true',
+    cert: process.env.SSL_CERT ?? 'certs/localhost.pem',
+    key: process.env.SSL_KEY ?? 'certs/localhost-key.pem',
+  },
 };
 
 export function buildPrompt(

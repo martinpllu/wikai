@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { streamSSE } from 'hono/streaming';
+import { createServer as createHttpsServer } from 'node:https';
+import { readFileSync, existsSync } from 'node:fs';
 import { config, buildCommentPrompt, buildInlineEditPrompt } from './config.js';
 import {
   listPages,
@@ -783,8 +785,29 @@ app.post('/:project/:slug/delete', async (c) => {
 });
 
 // Start server
-console.log(`Starting Delve on http://localhost:${config.port}`);
-serve({
-  fetch: app.fetch,
-  port: config.port,
-});
+if (config.ssl.enabled) {
+  if (!existsSync(config.ssl.cert) || !existsSync(config.ssl.key)) {
+    console.error(`SSL certificates not found at ${config.ssl.cert} and ${config.ssl.key}`);
+    console.error('Run the following to create them:');
+    console.error('  mkcert -install');
+    console.error('  mkcert -cert-file certs/localhost.pem -key-file certs/localhost-key.pem localhost 127.0.0.1');
+    process.exit(1);
+  }
+
+  console.log(`Starting Delve on https://localhost:${config.port}`);
+  serve({
+    fetch: app.fetch,
+    port: config.port,
+    createServer: createHttpsServer,
+    serverOptions: {
+      cert: readFileSync(config.ssl.cert),
+      key: readFileSync(config.ssl.key),
+    },
+  });
+} else {
+  console.log(`Starting Delve on http://localhost:${config.port}`);
+  serve({
+    fetch: app.fetch,
+    port: config.port,
+  });
+}
