@@ -8,6 +8,9 @@ const isWatch = process.argv.includes('--watch');
 async function build() {
   const outdir = 'public/js';
 
+  // Ensure output directory exists
+  fs.mkdirSync(outdir, { recursive: true });
+
   // Clean previous bundles (but keep source files for now during transition)
   const existingFiles = fs.readdirSync(outdir);
   for (const file of existingFiles) {
@@ -63,7 +66,9 @@ async function build() {
 }
 
 if (isWatch) {
-  // Watch mode
+  // Watch mode - ensure output directory exists
+  fs.mkdirSync('public/js', { recursive: true });
+
   const ctx = await esbuild.context({
     entryPoints: ['src/client/index.ts'],
     bundle: true,
