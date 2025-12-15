@@ -4,7 +4,7 @@
 
 Describe what you want to learn about. Watch the page stream in real-time. Ask questions and request edits. Click a link to generate the next page. Everything is stored as local markdown files.
 
-https://github.com/user-attachments/assets/7e2a4393-3c35-41e9-9a9c-b61f1a372f50
+https://github.com/user-attachments/assets/8a8968b4-1319-4fde-90f9-6dc27b0c844a
 
 ## Quick Start
 

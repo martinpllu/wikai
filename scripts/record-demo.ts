@@ -16,6 +16,7 @@
 import { chromium, Page } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 const BASE_URL = 'http://localhost:3171';
 const PROJECT = 'data-structures';
@@ -111,7 +112,19 @@ async function main() {
     await page.goto(`${BASE_URL}/${PROJECT}`);
     await page.waitForLoadState('networkidle');
 
+    // Position cursor off-screen initially (it will be injected after the trim point)
+    await page.mouse.move(0, 0);
+
+    // Wait for the page to fully render before starting any visible activity.
+    // This 3-second pause gets trimmed out, ensuring the first visible frame
+    // shows a fully rendered page (no fade-in from white).
+    console.log('Waiting for page to fully render (this will be trimmed)...');
+    await sleep(3000);
+
+    // === Everything below here is visible in the final video ===
     await injectCursor(page);
+
+    // Brief pause to show the UI before any action
     await sleep(500);
 
     // Move cursor to center initially
@@ -228,8 +241,22 @@ async function main() {
     // === Scene 3: Go back to Bloom Filter page and request Python example via page-level edit ===
     console.log('Scene 3: Back to Bloom Filter, request Python example');
 
-    await page.goto(bloomFilterUrl);
+    // Click on Bloom Filter in the sidebar
+    const sidebarLink = page.locator('.sidebar a').filter({ hasText: /bloom filter/i }).first();
+    const sidebarBox = await sidebarLink.boundingBox();
+    if (sidebarBox) {
+      await page.mouse.move(sidebarBox.x + sidebarBox.width / 2, sidebarBox.y + sidebarBox.height / 2, { steps: 25 });
+      await sleep(500);
+      await page.mouse.click(sidebarBox.x + sidebarBox.width / 2, sidebarBox.y + sidebarBox.height / 2);
+    } else {
+      // Fallback to direct navigation if sidebar link not found
+      console.log('Sidebar link not found, falling back to direct navigation');
+      await page.goto(bloomFilterUrl);
+    }
+    // Wait for navigation to Bloom Filter page to complete
+    await page.waitForURL(/\/data-structures\/bloom-filter/, { timeout: 10000 });
     await page.waitForLoadState('networkidle');
+    await sleep(500);
     await injectCursor(page);
     await sleep(1000);
 
@@ -416,6 +443,20 @@ async function main() {
       }
       fs.renameSync(oldPath, newPath);
       console.log(`Video saved to: ${newPath}`);
+
+      // Trim the initial pause from the video
+      // We wait 3s at the start for the page to fully render, then trim it out
+      const trimmedPath = path.join(videosDir, 'demo_trimmed.webm');
+      console.log('Trimming initial pause...');
+      try {
+        execSync(`ffmpeg -i ${newPath} -ss 3 -c copy -y ${trimmedPath}`, { stdio: 'pipe' });
+        fs.unlinkSync(newPath);
+        fs.renameSync(trimmedPath, newPath);
+        console.log('Trimmed video saved');
+      } catch (e) {
+        console.log('Warning: Could not trim video (ffmpeg may not be installed)');
+      }
+
       console.log('\nTo convert to MP4, run:');
       console.log('  ffmpeg -i videos/demo.webm -c:v libx264 -crf 20 -preset slow demo.mp4');
     }
