@@ -56,6 +56,14 @@ export function layout(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} - Delve</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script>
+    // Prevent flash of wrong theme by applying immediately
+    (function() {
+      var stored = localStorage.getItem('delve-theme');
+      var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">

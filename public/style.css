@@ -17,7 +17,7 @@
 }
 
 /* Default Theme: Refined Light */
-:root {
+:root, [data-theme="light"] {
   /* Typography */
   --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -61,6 +61,54 @@
   --color-link-missing: #ef4444;
 }
 
+/* Dark Theme */
+[data-theme="dark"] {
+  /* Core Colors */
+  --color-bg: #0f1419;
+  --color-bg-elevated: #1a2027;
+  --color-bg-sidebar: #151b22;
+  --color-bg-hover: rgba(255, 255, 255, 0.06);
+  --color-bg-active: rgba(255, 255, 255, 0.1);
+  --color-bg-code: rgba(255, 255, 255, 0.08);
+
+  /* Text Colors */
+  --color-text: #e7eaed;
+  --color-text-secondary: #9ca3af;
+  --color-text-tertiary: #6b7280;
+  --color-text-inverse: #0f1419;
+
+  /* Accent Colors - slightly brighter for dark mode */
+  --color-accent: #14b8a6;
+  --color-accent-hover: #2dd4bf;
+  --color-accent-subtle: rgba(20, 184, 166, 0.15);
+  --color-accent-glow: rgba(20, 184, 166, 0.3);
+
+  /* Logo Color */
+  --color-logo: #e7eaed;
+
+  /* UI Colors */
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-shadow: rgba(0, 0, 0, 0.3);
+  --color-shadow-lg: rgba(0, 0, 0, 0.5);
+
+  /* Status Colors */
+  --color-star: #fbbf24;
+  --color-error: #f87171;
+  --color-error-subtle: rgba(248, 113, 113, 0.15);
+  --color-success: #34d399;
+  --color-link: #5eead4;
+  --color-link-missing: #f87171;
+}
+
+/* Dark mode: darker shortcut hints on accent buttons */
+[data-theme="dark"] .new-page-btn .shortcut-hint,
+[data-theme="dark"] .generate-form button .shortcut-hint,
+[data-theme="dark"] .btn .shortcut-hint {
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(0, 0, 0, 0.7);
+}
+
 /* ===== RESET & BASE ===== */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -83,6 +131,15 @@ body {
   background: var(--color-bg);
   display: flex;
   min-height: 100vh;
+}
+
+a {
+  color: var(--color-link);
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-accent-hover);
 }
 
 /* ===== SIDEBAR ===== */
@@ -2491,7 +2548,7 @@ body[data-sidebar-open="false"] main {
 }
 
 .markdown-editor textarea:focus {
-  background: #ffffff;
+  background: var(--color-bg-elevated);
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.02), 0 0 0 2px var(--color-accent-subtle);
 }
 
@@ -2645,6 +2702,77 @@ body[data-sidebar-open="false"] main {
     padding: 10px 16px;
     font-size: 0.8rem;
   }
+}
+
+/* ===== THEME TOGGLE ===== */
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-bg-elevated);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 2px 8px var(--color-shadow);
+}
+
+.theme-toggle:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px var(--color-shadow-lg);
+}
+
+.theme-toggle:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast), transform var(--transition-normal);
+}
+
+.theme-toggle:hover svg {
+  color: var(--color-text);
+}
+
+/* Sun icon (shown in dark mode) */
+.theme-toggle .icon-sun {
+  display: none;
+}
+
+/* Moon icon (shown in light mode) */
+.theme-toggle .icon-moon {
+  display: block;
+}
+
+[data-theme="dark"] .theme-toggle .icon-sun {
+  display: block;
+}
+
+[data-theme="dark"] .theme-toggle .icon-moon {
+  display: none;
+}
+
+/* Smooth theme transition */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color 0.3s ease,
+              border-color 0.3s ease,
+              color 0.3s ease,
+              box-shadow 0.3s ease !important;
 }
 
 /* ===== UTILITY ===== */

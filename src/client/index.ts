@@ -7,9 +7,13 @@ import { initSettings } from './settings.js';
 import { initHome } from './home.js';
 import { initGeneratePage } from './generate-page.js';
 import { initPage } from './page.js';
+import { initTheme } from './theme.js';
 
 // Initialize modules based on which page we're on
 function init(): void {
+  // Theme runs on all pages (system preference detection + toggle)
+  initTheme();
+
   // Cost tracker runs on all pages
   initCostTracker();
 
