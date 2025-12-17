@@ -13,6 +13,25 @@ export function buildPrompt(
   existingContent?: string,
   userMessage?: string
 ): string {
+  // Different prompts for new pages vs editing existing pages
+  if (existingContent && userMessage) {
+    // Editing an existing page - be surgical, only make requested changes
+    return `You are editing a wiki page. Apply ONLY the requested changes - do not shorten, reorganize, or otherwise modify content that wasn't mentioned in the instruction.
+
+Current page content:
+${existingContent}
+
+User instruction: ${userMessage}
+
+Guidelines:
+- Make ONLY the changes requested by the user
+- Keep ALL other content exactly as-is (same length, same structure, same wording)
+- Preserve all existing [[WikiLinks]] and formatting
+- Do not add or remove sections unless explicitly requested
+- Output ONLY the complete updated markdown content, nothing else`;
+  }
+
+  // Generating a new page
   const contentSection = existingContent
     ? `Current page content:\n${existingContent}`
     : 'This is a new page - no existing content.';

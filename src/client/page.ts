@@ -1,5 +1,6 @@
 import type { InlineComment } from './types.js';
 import { isMac, getElement, escapeHtml, renderSimpleMarkdown, handleCmdEnter } from './utils.js';
+import { showDiffReview, isInDiffReview } from './diff-view.js';
 
 interface SelectionContext {
   text: string;
@@ -114,8 +115,13 @@ export function initPage(): void {
       }
     });
 
-    // Apply Edit button - modifies page content
+    // Apply Edit button - modifies page content with diff preview
     btnApplyEdit.addEventListener('click', async () => {
+      // Don't allow new edits while in diff review mode
+      if (isInDiffReview()) {
+        return;
+      }
+
       const message = unifiedTextarea.value.trim();
       if (!message) {
         showEmptyReminder();
@@ -138,15 +144,58 @@ export function initPage(): void {
         });
         window.setCostLoading?.(false);
 
-        // The /chat endpoint redirects, so we follow the redirect
-        if (response.redirected) {
-          window.location.href = response.url;
-        } else {
-          window.location.reload();
+        const result = await response.json();
+
+        if (result.error) {
+          alert('Error: ' + result.error);
+          return;
         }
+
+        // Get current content from the page data
+        const currentMarkdown = JSON.parse(pageDataEl.dataset.markdown || '""');
+        const wikiContent = getElement<HTMLElement>('wiki-content');
+        const currentHtml = wikiContent?.innerHTML || '';
+
+        // Show diff review instead of immediately saving
+        showDiffReview({
+          oldHtml: currentHtml,
+          newHtml: result.newHtml,
+          newMarkdown: result.newMarkdown,
+          editPrompt: result.editPrompt,
+          onAccept: async () => {
+            // Save the changes
+            const saveResponse = await fetch('/' + project + '/' + slug + '/accept-edit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                newMarkdown: result.newMarkdown,
+                editPrompt: result.editPrompt,
+              }),
+            });
+
+            const saveResult = await saveResponse.json();
+            if (saveResult.error) {
+              throw new Error(saveResult.error);
+            }
+
+            // Note: hideDiffReview() is called by the toolbar before reload
+            // to remove the beforeunload listener
+          },
+          onReject: () => {
+            // Reset form state
+            unifiedTextarea.disabled = false;
+            btnAsk.disabled = false;
+            btnApplyEdit.disabled = false;
+            btnApplyEdit.textContent = 'Edit';
+          },
+        });
+
+        // Clear the textarea after showing diff
+        unifiedTextarea.value = '';
       } catch (error) {
         window.setCostLoading?.(false);
         alert('Error: ' + (error as Error).message);
+      } finally {
         unifiedTextarea.disabled = false;
         btnAsk.disabled = false;
         btnApplyEdit.disabled = false;
@@ -496,7 +545,7 @@ export function initPage(): void {
       try {
         const context = getSelectionContext(currentRange!);
 
-        // Inline edit - streaming
+        // Show loading in popover
         popoverBody.innerHTML = '<div class="edit-streaming"><div class="spinner"></div> Editing...</div>';
 
         const formData = new FormData();
@@ -508,38 +557,48 @@ export function initPage(): void {
           method: 'POST',
           body: formData,
         });
+        window.setCostLoading?.(false);
 
-        const reader = response.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
+        const result = await response.json();
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.success) {
-                  window.setCostLoading?.(false);
-                  window.location.reload();
-                }
-                if (data.message) {
-                  window.setCostLoading?.(false);
-                  alert('Error: ' + data.message);
-                  hidePopover();
-                }
-              } catch {
-                // Ignore parse errors
-              }
-            }
-          }
+        if (result.error) {
+          alert('Error: ' + result.error);
+          hidePopover();
+          return;
         }
+
+        // Hide popover and show diff review
+        hidePopover();
+
+        // Get current content from the page
+        const currentHtml = wikiContent?.innerHTML || '';
+
+        // Show diff review
+        showDiffReview({
+          oldHtml: currentHtml,
+          newHtml: result.newHtml,
+          newMarkdown: result.newMarkdown,
+          editPrompt: result.editPrompt,
+          onAccept: async () => {
+            // Save the changes
+            const saveResponse = await fetch('/' + project + '/' + slug + '/accept-edit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                newMarkdown: result.newMarkdown,
+                editPrompt: result.editPrompt,
+              }),
+            });
+
+            const saveResult = await saveResponse.json();
+            if (saveResult.error) {
+              throw new Error(saveResult.error);
+            }
+          },
+          onReject: () => {
+            // Nothing to reset - popover already hidden
+          },
+        });
       } catch (error) {
         window.setCostLoading?.(false);
         alert('Error: ' + (error as Error).message);

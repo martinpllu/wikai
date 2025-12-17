@@ -445,6 +445,30 @@ export async function generatePage(
 }
 
 /**
+ * Generate page content for preview WITHOUT saving.
+ * Used for diff preview before user accepts changes.
+ */
+export async function generatePagePreview(
+  slug: string,
+  topic: string,
+  userMessage: string,
+  project: string = DEFAULT_PROJECT,
+  settings?: UserSettings
+): Promise<string> {
+  const existingContent = await readPage(slug, project);
+
+  const prompt = buildPrompt(topic, existingContent ?? undefined, userMessage);
+
+  const context: RequestContext = {
+    action: existingContent ? 'edit' : 'generate',
+    pageName: topic,
+    prompt: userMessage,
+  };
+
+  return await invokeModel(prompt, settings?.systemPrompt, settings, context);
+}
+
+/**
  * Extract title from markdown H1 heading
  */
 export function extractTitleFromMarkdown(content: string): string | null {

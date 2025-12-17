@@ -103,7 +103,8 @@ export function wikiPage(
   pageData: PageData,
   pages: PageInfo[] = [],
   project: string = DEFAULT_PROJECT,
-  projects: string[] = [DEFAULT_PROJECT]
+  projects: string[] = [DEFAULT_PROJECT],
+  rawMarkdown: string = ''
 ): string {
   // Inject inline comment highlights into the HTML
   const { html: contentWithHighlights, orphanedIds } = injectInlineHighlights(
@@ -113,6 +114,8 @@ export function wikiPage(
 
   // Prepare inline comments data for client-side JS
   const inlineCommentsJson = encodeJsonForAttr(pageData.inlineComments);
+  // Encode markdown for safe HTML attribute storage
+  const markdownJson = encodeJsonForAttr(rawMarkdown);
 
   return layout({
     title,
@@ -125,6 +128,7 @@ export function wikiPage(
       data-slug="${slug}"
       data-project="${project}"
       data-inline-comments='${inlineCommentsJson}'
+      data-markdown='${markdownJson}'
       style="display: none;"></div>
 
     <article class="wiki-page">

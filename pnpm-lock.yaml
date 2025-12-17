@@ -9,35 +9,44 @@ importers:
   .:
     dependencies:
       '@hono/node-server':
-        specifier: 1.13.7
+        specifier: ^1.13.7
         version: 1.13.7(hono@4.11.0)
+      diff-match-patch:
+        specifier: ^1.0.5
+        version: 1.0.5
       hono:
-        specifier: 4.11.0
+        specifier: ^4.11.0
         version: 4.11.0
+      htmldiff-js:
+        specifier: ^1.0.5
+        version: 1.0.5
       marked:
-        specifier: 15.0.4
+        specifier: ^15.0.4
         version: 15.0.4
       streaming-markdown:
-        specifier: 0.2.15
+        specifier: ^0.2.15
         version: 0.2.15
     devDependencies:
       '@playwright/test':
-        specifier: 1.57.0
+        specifier: ^1.57.0
         version: 1.57.0
+      '@types/diff-match-patch':
+        specifier: ^1.0.36
+        version: 1.0.36
       '@types/node':
-        specifier: 22.10.1
+        specifier: ^22.10.1
         version: 22.10.1
       concurrently:
-        specifier: 9.1.0
+        specifier: ^9.1.0
         version: 9.1.0
       esbuild:
-        specifier: 0.27.1
+        specifier: ^0.27.1
         version: 0.27.1
       tsx:
-        specifier: 4.21.0
+        specifier: ^4.21.0
         version: 4.21.0
       typescript:
-        specifier: 5.7.2
+        specifier: ^5.7.2
         version: 5.7.2
 
 packages:
@@ -209,6 +218,9 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  '@types/diff-match-patch@1.0.36':
+    resolution: {integrity: sha512-xFdR6tkm0MWvBfO8xXCSsinYxHcqkQUlcHeSpMC2ukzOb6lwQAfDmW+Qt0AvlGd8HpsS28qKsB+oPeJn9I39jg==}
+
   '@types/node@22.10.1':
     resolution: {integrity: sha512-qKgsUwfHZV2WCWLAnVP1JqnpE6Im6h3Y0+fYgMTasNQ7V++CBX5OT1as0g0f+OyubbFqhf6XVNIsmN4IIhEgGQ==}
 
@@ -239,6 +251,9 @@ packages:
     resolution: {integrity: sha512-VxkzwMAn4LP7WyMnJNbHN5mKV9L2IbyDjpzemKr99sXNR3GqRNMMHdm7prV1ws9wg7ETj6WUkNOigZVsptwbgg==}
     engines: {node: '>=18'}
     hasBin: true
+
+  diff-match-patch@1.0.5:
+    resolution: {integrity: sha512-IayShXAgj/QMXgB0IWmKx+rOPuGMhqm5w6jvFxmVenXKIzRqTAAsbBPT3kWQeGANj3jGgvcvv4yK6SxqYmikgw==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -276,6 +291,9 @@ packages:
   hono@4.11.0:
     resolution: {integrity: sha512-Jg8uZzN2ul8/qlyid5FO8O624F3AK0wKtkgoeEON1qBum1rM1itYBxoMKu/1SPJC7F1+xlIZsJMmc4HHhJ1AWg==}
     engines: {node: '>=16.9.0'}
+
+  htmldiff-js@1.0.5:
+    resolution: {integrity: sha512-rmow9353OK0elkub15Sbze8Nj7BYfduqoJJw4yEvHHjOcHeCazNPk0PoUbjE8SvxKgjymeRIFU/OnS8jtitRtA==}
 
   is-fullwidth-code-point@3.0.0:
     resolution: {integrity: sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==}
@@ -457,6 +475,8 @@ snapshots:
     dependencies:
       playwright: 1.57.0
 
+  '@types/diff-match-patch@1.0.36': {}
+
   '@types/node@22.10.1':
     dependencies:
       undici-types: 6.20.0
@@ -493,6 +513,8 @@ snapshots:
       supports-color: 8.1.1
       tree-kill: 1.2.2
       yargs: 17.7.2
+
+  diff-match-patch@1.0.5: {}
 
   emoji-regex@8.0.0: {}
 
@@ -542,6 +564,8 @@ snapshots:
   has-flag@4.0.0: {}
 
   hono@4.11.0: {}
+
+  htmldiff-js@1.0.5: {}
 
   is-fullwidth-code-point@3.0.0: {}
 

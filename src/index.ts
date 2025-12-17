@@ -40,6 +40,7 @@ import {
   PageVersion,
   readSettings,
   writeSettings,
+  generatePagePreview,
 } from './wiki.js';
 import { invokeModel, invokeModelStreaming, type RequestContext } from './providers/index.js';
 import { getCostSummary } from './costs.js';
@@ -314,10 +315,10 @@ app.get('/:project/:slug', async (c) => {
   ]);
   // Use saved title if available, otherwise fall back to unslugify
   const title = pageData.title || unslugify(slug);
-  return c.html(wikiPage(slug, title, htmlContent, pageData, pages, project, projects));
+  return c.html(wikiPage(slug, title, htmlContent, pageData, pages, project, projects, content));
 });
 
-// Chat/edit page
+// Chat/edit page - returns JSON with new content for diff preview
 app.post('/:project/:slug/chat', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
@@ -327,7 +328,7 @@ app.post('/:project/:slug/chat', async (c) => {
     const message = body['message'];
 
     if (!message || typeof message !== 'string') {
-      return c.html(errorPage('Please provide a message'), 400);
+      return c.json({ error: 'Please provide a message' }, 400);
     }
 
     // Use saved title if available for better context in prompts
@@ -335,22 +336,60 @@ app.post('/:project/:slug/chat', async (c) => {
     const topic = pageData.title || unslugify(slug);
     const userMessage = message.trim();
     const settings = await readSettings();
-    const { content } = await generatePage(topic, userMessage, project, settings);
+
+    // Use generatePagePreview to get content WITHOUT saving
+    const newMarkdown = await generatePagePreview(slug, topic, userMessage, project, settings);
+
+    // Render the new markdown to HTML for diff preview
+    const newHtml = await renderMarkdown(newMarkdown, project);
+
+    // Return new content for client-side diff preview (don't save yet)
+    return c.json({
+      success: true,
+      newMarkdown,
+      newHtml,
+      editPrompt: userMessage,
+    });
+  } catch (error) {
+    console.error('Chat error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: `Failed to generate edit: ${message}` }, 500);
+  }
+});
+
+// Accept edit - saves the content after user approves diff
+app.post('/:project/:slug/accept-edit', async (c) => {
+  const project = c.req.param('project');
+  const slug = c.req.param('slug');
+
+  try {
+    const body = await c.req.json();
+    const { newMarkdown, editPrompt } = body;
+
+    if (!newMarkdown || typeof newMarkdown !== 'string') {
+      return c.json({ error: 'Please provide content' }, 400);
+    }
+
+    // Save the page
+    await writePage(slug, newMarkdown, project);
 
     // Add version for the edit
-    await addVersion(slug, content, userMessage, 'edit', project);
+    await addVersion(slug, newMarkdown, editPrompt || 'Edit', 'edit', project);
+
+    // Update edit history
+    const pageData = await readPageData(slug, project);
     const timestamp = new Date().toISOString();
     pageData.editHistory.push(
-      { role: 'user', content: userMessage, timestamp },
+      { role: 'user', content: editPrompt || 'Edit', timestamp },
       { role: 'assistant', content: 'Page updated', timestamp }
     );
     await writePageData(slug, pageData, project);
 
-    return c.redirect(`/${project}/${slug}`);
+    return c.json({ success: true });
   } catch (error) {
-    console.error('Chat error:', error);
+    console.error('Accept edit error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return c.html(errorPage(`Failed to update page: ${message}`), 500);
+    return c.json({ error: `Failed to save: ${message}` }, 500);
   }
 });
 
@@ -599,6 +638,7 @@ app.post('/:project/:slug/inline/:id/resolve', async (c) => {
 // Inline Edit Route (SSE streaming)
 // ============================================
 
+// Inline edit preview - generates new content without saving
 app.post('/:project/:slug/inline-edit', async (c) => {
   const project = c.req.param('project');
   const slug = c.req.param('slug');
@@ -621,43 +661,29 @@ app.post('/:project/:slug/inline-edit', async (c) => {
 
   const settings = await readSettings();
 
-  return streamSSE(c, async (stream) => {
-    try {
-      const prompt = buildInlineEditPrompt(pageContent, text, instruction.trim());
-      const context: RequestContext = {
-        action: 'inline-edit',
-        pageName: unslugify(slug),
-        prompt: instruction.trim(),
-      };
+  try {
+    const prompt = buildInlineEditPrompt(pageContent, text, instruction.trim());
+    const context: RequestContext = {
+      action: 'inline-edit',
+      pageName: unslugify(slug),
+      prompt: instruction.trim(),
+    };
 
-      let updatedContent = '';
-      for await (const chunk of invokeModelStreaming(prompt, settings.systemPrompt || undefined, settings, context)) {
-        updatedContent += chunk;
-        await stream.writeSSE({
-          event: 'chunk',
-          data: JSON.stringify({ content: chunk }),
-        });
-      }
+    // Generate new content WITHOUT saving
+    const newMarkdown = await invokeModel(prompt, settings.systemPrompt || undefined, settings, context);
+    const newHtml = await renderMarkdown(newMarkdown, project);
 
-      // The LLM returns the full updated page content
-      await writePage(slug, updatedContent, project);
-
-      // Add version for the edit
-      await addVersion(slug, updatedContent, instruction.trim(), 'edit', project);
-
-      await stream.writeSSE({
-        event: 'complete',
-        data: JSON.stringify({ success: true }),
-      });
-    } catch (error) {
-      console.error('Inline edit error:', error);
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      await stream.writeSSE({
-        event: 'error',
-        data: JSON.stringify({ message }),
-      });
-    }
-  });
+    return c.json({
+      success: true,
+      newMarkdown,
+      newHtml,
+      editPrompt: instruction.trim(),
+    });
+  } catch (error) {
+    console.error('Inline edit error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ error: message }, 500);
+  }
 });
 
 // ============================================

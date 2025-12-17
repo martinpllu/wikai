@@ -2775,6 +2775,210 @@ html.theme-transition *::after {
               box-shadow 0.3s ease !important;
 }
 
+/* ===== DIFF REVIEW ===== */
+
+/* Diff highlight styles */
+.diff-ins {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: var(--color-text);
+  text-decoration: none;
+  padding: 0 2px;
+  margin: 0 -2px;
+  border-radius: 2px;
+}
+
+.diff-del {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+  padding: 0 2px;
+  margin: 0 -2px;
+  border-radius: 2px;
+}
+
+[data-theme="dark"] .diff-ins {
+  background-color: rgba(16, 185, 129, 0.25);
+}
+
+[data-theme="dark"] .diff-del {
+  background-color: rgba(239, 68, 68, 0.25);
+}
+
+/* Diff content container */
+.diff-content {
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Review toolbar */
+.diff-review-toolbar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--color-bg-elevated);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -4px 16px var(--color-shadow);
+  z-index: 100;
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.diff-review-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-right: auto;
+}
+
+.diff-review-toolbar #diff-reject {
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  font-size: 0.875rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.diff-review-toolbar #diff-reject:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text);
+  border-color: var(--color-text-tertiary);
+}
+
+.diff-review-toolbar #diff-accept {
+  padding: 10px 24px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-size: 0.875rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--color-text-inverse);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.diff-review-toolbar #diff-accept:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--color-accent-glow);
+}
+
+.diff-review-toolbar #diff-accept:disabled,
+.diff-review-toolbar #diff-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* No changes message */
+.diff-no-changes {
+  padding: 24px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  text-align: center;
+  margin-bottom: 24px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.diff-no-changes p {
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.diff-no-changes button {
+  padding: 10px 24px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-size: 0.875rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--color-text-inverse);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.diff-no-changes button:hover {
+  background: var(--color-accent-hover);
+}
+
+/* htmldiff-js diff styles */
+ins.diffins {
+  background: rgba(34, 197, 94, 0.2);
+  text-decoration: none;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+del.diffdel {
+  background: rgba(239, 68, 68, 0.2);
+  text-decoration: line-through;
+  border-radius: 2px;
+  padding: 0 2px;
+  color: var(--color-text-secondary);
+}
+
+ins.diffmod {
+  background: rgba(59, 130, 246, 0.2);
+  text-decoration: none;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+del.diffmod {
+  background: rgba(239, 68, 68, 0.15);
+  text-decoration: line-through;
+  border-radius: 2px;
+  padding: 0 2px;
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] ins.diffins {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+[data-theme="dark"] del.diffdel {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="dark"] ins.diffmod {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="dark"] del.diffmod {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Body class during diff review */
+body.diff-review-mode .unified-form,
+body.diff-review-mode .chat-section,
+body.diff-review-mode .version-history-section {
+  display: none;
+}
+
 /* ===== UTILITY ===== */
 .hidden {
   display: none !important;

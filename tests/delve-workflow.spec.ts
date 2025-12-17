@@ -192,26 +192,35 @@ test.describe('Delve Complete Workflow', () => {
     // Submit edit via Apply Edit button
     await page.click('#btn-apply-edit');
 
-    // Wait for page to update (content should change)
-    await page.waitForFunction(
-      (original) => {
-        const content = document.querySelector('#wiki-content')?.textContent;
-        return content && content !== original;
-      },
-      originalContent,
-      { timeout: 120000 }
-    );
+    // Wait for diff review toolbar to appear
+    await expect(page.locator('#diff-review-toolbar')).toBeVisible({ timeout: 120000 });
 
-    // Verify content changed and has pirate-y words
-    const newContent = await page.locator('#wiki-content').textContent();
-    expect(newContent).not.toBe(originalContent);
+    // Verify we're in diff review mode with highlights
+    await expect(page.locator('body.diff-review-mode')).toBeVisible();
 
-    // Check for pirate speak indicators (at least one should be present)
+    // Check that diff content shows pirate words before accepting
+    const diffContent = await page.locator('#wiki-content').textContent();
     const pirateWords = ['arr', 'matey', 'ye', 'be', 'ahoy', 'scallywag', 'buccaneer', 'landlubber'];
     const hasPirateSpeak = pirateWords.some(word =>
-      newContent?.toLowerCase().includes(word)
+      diffContent?.toLowerCase().includes(word)
     );
     expect(hasPirateSpeak).toBe(true);
+
+    // Click Accept to apply the changes
+    await page.click('#diff-accept');
+
+    // Wait for page to reload
+    await page.waitForLoadState('networkidle');
+
+    // Verify content persisted after reload
+    const finalContent = await page.locator('#wiki-content').textContent();
+    expect(finalContent).not.toBe(originalContent);
+
+    // Verify pirate words are still there
+    const hasPirateSpeakAfterSave = pirateWords.some(word =>
+      finalContent?.toLowerCase().includes(word)
+    );
+    expect(hasPirateSpeakAfterSave).toBe(true);
   });
 
   test('6. Inline comment - select text and ask a question', async ({ page }) => {
