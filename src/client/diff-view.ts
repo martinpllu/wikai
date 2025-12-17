@@ -5,16 +5,20 @@ import htmldiffModule from 'htmldiff-js';
 const htmldiff = htmldiffModule.default || htmldiffModule;
 
 /**
- * Normalize typography to avoid spurious diffs from quote/apostrophe variations.
- * LLMs often return "smart quotes" while original content may have straight quotes.
+ * Normalize HTML to avoid spurious diffs from:
+ * - Quote/apostrophe variations (LLMs often return "smart quotes")
+ * - Whitespace differences between server and browser HTML
+ * - Self-closing tag differences
  */
-function normalizeTypography(html: string): string {
-  // Use a temporary element to decode all HTML entities first
+function normalizeHtml(html: string): string {
+  // Use a temporary element to decode all HTML entities and normalize structure
   const temp = document.createElement('div');
   temp.innerHTML = html;
-  let decoded = temp.innerHTML;
 
-  return decoded
+  // Re-serialize to get consistent browser-normalized HTML
+  let normalized = temp.innerHTML;
+
+  return normalized
     // Normalize apostrophes and single quotes (Unicode curly to straight)
     .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
     // Normalize double quotes (Unicode curly to straight)
@@ -24,7 +28,13 @@ function normalizeTypography(html: string): string {
     // Normalize ellipsis
     .replace(/\u2026/g, '...')
     // Normalize spaces (non-breaking, thin, etc.)
-    .replace(/[\u00A0\u2009\u200A\u202F]/g, ' ');
+    .replace(/[\u00A0\u2009\u200A\u202F]/g, ' ')
+    // Remove leading/trailing whitespace within tags
+    .replace(/>\s+</g, '><')
+    // Normalize multiple spaces to single space
+    .replace(/\s{2,}/g, ' ')
+    // Trim whitespace at start and end
+    .trim();
 }
 
 export interface DiffReviewState {
@@ -50,9 +60,9 @@ export function showDiffReview(state: DiffReviewState): void {
   // Store original content for reject
   const originalContent = wikiContent.innerHTML;
 
-  // Normalize typography to avoid spurious diffs from quote/apostrophe variations
-  const normalizedOldHtml = normalizeTypography(state.oldHtml);
-  const normalizedNewHtml = normalizeTypography(state.newHtml);
+  // Normalize HTML to avoid spurious diffs from whitespace/typography variations
+  const normalizedOldHtml = normalizeHtml(state.oldHtml);
+  const normalizedNewHtml = normalizeHtml(state.newHtml);
 
   // Check if there are any meaningful changes (compare normalized text)
   const oldText = extractText(normalizedOldHtml);
@@ -79,10 +89,10 @@ export function showDiffReview(state: DiffReviewState): void {
     document.body.classList.remove('diff-review-mode');
   });
 
-  // Insert toolbar after wiki content
+  // Insert toolbar at the top of the page, before wiki content
   const contentContainer = wikiContent.closest('.page-content') || wikiContent.parentElement;
   if (contentContainer) {
-    contentContainer.appendChild(toolbar);
+    contentContainer.insertBefore(toolbar, contentContainer.firstChild);
   }
 
   // Add beforeunload warning
@@ -123,9 +133,11 @@ function createReviewToolbar(state: DiffReviewState, onCleanup: () => void): HTM
   toolbar.id = 'diff-review-toolbar';
 
   toolbar.innerHTML = `
+    <div class="diff-review-indicator"></div>
     <span class="diff-review-label">Review changes</span>
-    <button class="btn btn-secondary" id="diff-reject">Reject</button>
-    <button class="btn btn-primary" id="diff-accept">Accept</button>
+    <span class="diff-review-hint"><span class="hint-del">struck through</span> = removed, <span class="hint-ins">highlighted</span> = added</span>
+    <button id="diff-reject">Reject</button>
+    <button id="diff-accept">Accept</button>
   `;
 
   const rejectBtn = toolbar.querySelector('#diff-reject') as HTMLButtonElement;
